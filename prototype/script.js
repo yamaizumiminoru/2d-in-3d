@@ -47,6 +47,9 @@ const COLORS = {
   blockGreen: 0x70f2a4,
   blockViolet: 0xb77cff,
   dark: 0x020304,
+  // rendered "emptiness" (sky/fog/floor glow) sits slightly above the decay
+  // target `dark`, so scanned-empty leaves a fading trace vs unscanned black
+  air: 0x07090c,
 };
 
 const dom = {
@@ -80,7 +83,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(48, SENSOR_RENDER_WIDTH / window.innerHeight, 0.03, 90);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-renderer.setClearColor(COLORS.dark, 1);
+renderer.setClearColor(COLORS.air, 1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.domElement.id = 'hidden-renderer';
@@ -174,8 +177,8 @@ function addEdgeGlow(mesh, color = COLORS.wallEdge, opacity = 0.72) {
 }
 
 function addLights() {
-  scene.background = new THREE.Color(COLORS.dark);
-  scene.fog = new THREE.FogExp2(COLORS.dark, 0.032);
+  scene.background = new THREE.Color(COLORS.air);
+  scene.fog = new THREE.FogExp2(COLORS.air, 0.032);
   scene.add(new THREE.HemisphereLight(0xc8fbff, 0x071214, 1.55));
 
   const key = new THREE.DirectionalLight(0xffffff, 1.4);
@@ -190,7 +193,7 @@ function addLights() {
 function addFloor() {
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(42, 42, 1, 1),
-    material(COLORS.floor, { emissive: 0x06292d, emissiveIntensity: 0.26 }),
+    material(COLORS.floor, { emissive: 0x0b3a42, emissiveIntensity: 0.55 }),
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = -0.02;

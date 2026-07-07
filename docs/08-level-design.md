@@ -11,7 +11,7 @@ How to build spaces that are *readable* through scan, afterimage, and echo. The 
 
 ## Readability rules
 
-1. **High-contrast emissive colors only** — objects are mostly seen as afterimages; dark or desaturated geometry effectively doesn't exist. Use the `COLORS` palette; every solid gets `addEdgeGlow` (edges survive fading longest).
+1. **High-contrast emissive colors only** — objects are mostly seen as afterimages; dark or desaturated geometry effectively doesn't exist. Use the `COLORS` palette; every solid gets `addEdgeGlow` (edges survive fading longest). The floor and sky render slightly above pure black (`COLORS.air`) so *scanned-empty* differs from *unscanned* ([03-perception](03-perception.md) invariant 7) — dark-room pockets (`glow` ≈ 0.02) still work because their *walls* are dark, while the floor trace shows where you've swept.
 2. **Color = vocabulary.** Current grammar, keep it consistent: cyan = outer walls/landmarks, amber/blue/green/violet = internal obstacle families, magenta/red = special, bright green = *goal, exclusively*. Never use the portal green for anything else.
 3. **Motion must be periodic.** Moving objects are readable only if their motion is regular (sinusoidal shuttle, oval). The player reads phase from repeated scans; chaotic motion is invisible noise. (Anchor 3 and 4 are the reference.)
 4. **Landmarks over maps.** Tall unique silhouettes (columns, marker boxes) at asymmetric positions let players re-anchor their mental sketch after a fade-out. Every room needs ≥ 3 distinguishable landmarks at different bearings.
