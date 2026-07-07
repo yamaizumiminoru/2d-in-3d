@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sliceborne</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #e8f7ff;
+      --muted: #86a4aa;
+      --cyan: #44e7ff;
+      --amber: #ffc95a;
+      --green: #7dff9a;
+      --magenta: #ff5fd7;
+      --panel: rgba(3, 8, 10, 0.72);
+      --edge: rgba(136, 238, 255, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #020304;
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+      letter-spacing: 0;
+    }
+
+    #mental-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #020304;
+      image-rendering: pixelated;
+    }
+
+    #hidden-renderer {
+      position: fixed;
+      left: -200px;
+      top: 0;
+      width: 96px;
+      height: 100vh;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #hud {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 4;
+      width: min(320px, calc(100vw - 24px));
+      display: grid;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .panel {
+      border: 1px solid var(--edge);
+      border-radius: 6px;
+      background: var(--panel);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+      backdrop-filter: blur(8px);
+    }
+
+    .titlebar {
+      padding: 9px 10px 7px;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      font-size: 15px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .readout {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      border-top: 1px solid rgba(136, 238, 255, 0.16);
+    }
+
+    .cell {
+      min-width: 0;
+      padding: 8px 9px;
+      border-right: 1px solid rgba(136, 238, 255, 0.14);
+    }
+
+    .cell:last-child {
+      border-right: 0;
+    }
+
+    .label {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .value {
+      display: block;
+      margin-top: 4px;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: clamp(13px, 3.5vw, 17px);
+      font-weight: 800;
+      line-height: 1;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* 1D HUD language (decision memo 5): measurements are marks, not numerals */
+    .bar {
+      position: relative;
+      height: 7px;
+      margin-top: 9px;
+      border: 1px solid rgba(136, 238, 255, 0.32);
+      border-radius: 2px;
+      background: rgba(2, 3, 4, 0.42);
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 0%;
+      background: rgba(68, 231, 255, 0.66);
+    }
+
+    #drift-bar {
+      background: rgba(255, 201, 90, 0.6);
+    }
+
+    .anchor-segments {
+      display: flex;
+      gap: 3px;
+      margin-top: 8px;
+    }
+
+    .anchor-segment {
+      width: 11px;
+      height: 9px;
+      border: 1px solid rgba(136, 238, 255, 0.3);
+      border-radius: 1px;
+      background: rgba(2, 3, 4, 0.4);
+    }
+
+    .anchor-segment.active {
+      border-color: rgba(232, 247, 255, 0.85);
+    }
+
+    .ribbon {
+      position: relative;
+      height: 18px;
+      margin-top: 6px;
+      border: 1px solid rgba(136, 238, 255, 0.32);
+      border-radius: 2px;
+      background: rgba(2, 3, 4, 0.42);
+      overflow: hidden;
+    }
+
+    .ribbon::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: calc(50% - 0.5px);
+      width: 1px;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .rib-letter {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      color: var(--ink);
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+    }
+
+    .rib-letter.n {
+      color: var(--amber);
+    }
+
+    .rib-drift {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 22px;
+      height: 1px;
+      background: rgba(134, 164, 170, 0.55);
+      transform: translate(-50%, -50%);
+    }
+
+    #message {
+      min-height: 38px;
+      padding: 10px 11px;
+      color: #dffcff;
+      font-size: clamp(12px, 3.5vw, 14px);
+      line-height: 1.35;
+    }
+
+    #reticle {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      --scan-roll: 0rad;
+    }
+
+    #reticle::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: calc(50% - 1px);
+      width: 2px;
+      transform: rotate(var(--scan-roll));
+      transform-origin: 50% 50%;
+      background: linear-gradient(
+        to bottom,
+        transparent 0,
+        rgba(255, 255, 255, 0.05) 9%,
+        rgba(255, 255, 255, 0.36) 50%,
+        rgba(255, 255, 255, 0.05) 91%,
+        transparent 100%
+      );
+    }
+
+    #reticle::after {
+      content: "";
+      position: absolute;
+      left: calc(50% - 64px);
+      bottom: 28px;
+      width: 128px;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.34);
+      box-shadow:
+        -42px 0 0 rgba(68, 231, 255, 0.22),
+        42px 0 0 rgba(255, 201, 90, 0.24);
+    }
+
+    #start-veil {
+      position: fixed;
+      inset: 0;
+      z-index: 8;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        linear-gradient(90deg, rgba(2, 3, 4, 0.96), rgba(2, 3, 4, 0.78)),
+        repeating-linear-gradient(90deg, rgba(68, 231, 255, 0.05) 0 1px, transparent 1px 16px);
+      cursor: pointer;
+    }
+
+    #start-veil.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 360ms ease;
+    }
+
+    .start-mark {
+      width: min(500px, 100%);
+      border: 1px solid rgba(136, 238, 255, 0.38);
+      border-radius: 6px;
+      padding: 22px;
+      background: rgba(0, 0, 0, 0.54);
+    }
+
+    .start-mark h1 {
+      margin: 0;
+      color: #ffffff;
+      font-size: clamp(34px, 11vw, 76px);
+      line-height: 0.92;
+      letter-spacing: 0;
+    }
+
+    .start-mark p {
+      max-width: 34rem;
+      margin: 14px 0 0;
+      color: #bdeef6;
+      font-size: clamp(13px, 3.4vw, 16px);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 620px) {
+      #hud {
+        top: 8px;
+        left: 8px;
+        width: calc(100vw - 16px);
+      }
+
+      .titlebar {
+        padding: 8px 9px 6px;
+      }
+
+      #message {
+        min-height: 34px;
+        padding: 8px 9px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="mental-canvas"></canvas>
+  <div id="reticle" aria-hidden="true"></div>
+
+  <section id="hud" aria-live="polite">
+    <div class="panel">
+      <div class="titlebar">
+        <div class="brand">SLICEBORNE</div>
+        <div class="label" id="mode-readout">ONE-LINE EYE</div>
+      </div>
+      <div class="readout">
+        <div class="cell">
+          <span class="label">SIGNAL</span>
+          <div class="bar"><div class="bar-fill" id="signal-bar"></div></div>
+        </div>
+        <div class="cell">
+          <span class="label">ANCHORS</span>
+          <div class="anchor-segments" id="anchor-segments"></div>
+        </div>
+        <div class="cell">
+          <span class="label">DRIFT</span>
+          <div class="bar"><div class="bar-fill" id="drift-bar"></div></div>
+        </div>
+        <div class="cell">
+          <span class="label">DIR</span>
+          <div class="ribbon" id="dir-ribbon" aria-label="Compass">
+            <span class="rib-drift" id="rib-drift"></span>
+            <span class="rib-letter n">N</span>
+            <span class="rib-letter e">E</span>
+            <span class="rib-letter s">S</span>
+            <span class="rib-letter w">W</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="message">A flat eye wakes inside volume.</div>
+  </section>
+
+  <div id="start-veil">
+    <div class="start-mark">
+      <h1>SLICE<br>BORNE</h1>
+      <p>A two-dimensional traveler reads a three-dimensional ruin through a single moving cut.</p>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./third_party/three/three.module.js"
+      }
+    }
+  </script>
+  <script type="module" src="./script.js"></script>
+</body>
+</html>

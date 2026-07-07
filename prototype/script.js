@@ -1,0 +1,1405 @@
+import * as THREE from 'three';
+import { DEFAULT_WORLD_BASIS as WORLD } from './modules/math/WorldBasis.js';
+
+const SENSOR_RENDER_WIDTH = 96;
+const TURN_SPEED = 1.75;
+const ROLL_SPEED = 1.15;
+const MOVE_SPEED = 4.2;
+const PLAYER_RADIUS = 0.48;
+const EYE_HEIGHT = 1.2;
+const PANORAMA_PIXELS_PER_RADIAN = 390;
+const SCAN_DOPPLER_AMOUNT = 0.28;
+const ECHO_PERIOD = 0.94;
+const MOUSE_SCAN_SPEED = 0.0042;
+const WHEEL_ROLL_SPEED = 0.0024;
+const MAX_SCAN_ROLL = Math.PI / 3;
+const GRAVITY = 17.5;
+const JUMP_SPEED = 6.2;
+const PICKUP_TOUCH_RADIUS = 1.18;
+const AIR_TOUCH_HEIGHT = 1.05;
+const AIR_TOUCH_TOLERANCE = 0.78;
+const REVEAL_DURATION = 0.28;
+const SOUND_SPEED = 34;
+const MAX_ECHO_RANGE = 24;
+const ECHO_RAY_OFFSETS = [-0.21, 0, 0.21];
+const ECHO_GAIN = 0.16;
+// Tilt-derived stereo (decision ③): the scan line's two ends are the ears.
+// pan = -EAR_SEPARATION * |sin(scanRoll)| * sin(relativeYaw); mono when vertical.
+const EAR_SEPARATION = 0.6;
+const BOUNDS = Object.freeze({ minRight: -18.5, maxRight: 18.5, minForward: -18.5, maxForward: 18.5 });
+
+const COLORS = {
+  cyan: 0x44e7ff,
+  amber: 0xffc95a,
+  green: 0x7dff9a,
+  magenta: 0xff5fd7,
+  red: 0xff4d62,
+  floor: 0x0a181a,
+  wall: 0x35d7ff,
+  wallEdge: 0xd5fbff,
+  blockAmber: 0xffb84a,
+  blockBlue: 0x4a8dff,
+  blockGreen: 0x70f2a4,
+  blockViolet: 0xb77cff,
+  dark: 0x020304,
+};
+
+const dom = {
+  mentalCanvas: document.getElementById('mental-canvas'),
+  signalBar: document.getElementById('signal-bar'),
+  anchorSegments: document.getElementById('anchor-segments'),
+  driftBar: document.getElementById('drift-bar'),
+  dirRibbon: document.getElementById('dir-ribbon'),
+  ribDrift: document.getElementById('rib-drift'),
+  modeReadout: document.getElementById('mode-readout'),
+  message: document.getElementById('message'),
+  startVeil: document.getElementById('start-veil'),
+  reticle: document.getElementById('reticle'),
+};
+
+// 1D heading ribbon (memo 5): world yaw of each cardinal in the player-yaw convention
+const RIBBON_PX_PER_RADIAN = 26;
+const RIBBON_HALF_WIDTH = 34;
+const ribbonLetters = [
+  { el: dom.dirRibbon.querySelector('.rib-letter.n'), yaw: 0 },
+  { el: dom.dirRibbon.querySelector('.rib-letter.e'), yaw: -Math.PI / 2 },
+  { el: dom.dirRibbon.querySelector('.rib-letter.s'), yaw: Math.PI },
+  { el: dom.dirRibbon.querySelector('.rib-letter.w'), yaw: Math.PI / 2 },
+];
+
+const mentalCtx = dom.mentalCanvas.getContext('2d', { alpha: false });
+const copyCanvas = document.createElement('canvas');
+const copyCtx = copyCanvas.getContext('2d', { alpha: false });
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(48, SENSOR_RENDER_WIDTH / window.innerHeight, 0.03, 90);
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+renderer.setClearColor(COLORS.dark, 1);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.domElement.id = 'hidden-renderer';
+document.body.appendChild(renderer.domElement);
+
+const player = {
+  position: WORLD.fromBasisComponents(0, 0, -16),
+  yaw: 0,
+  lastYaw: 0,
+  scanRoll: 0,
+  angularVelocity: 0,
+  rollVelocity: 0,
+  height: 0,
+  verticalVelocity: 0,
+  grounded: true,
+};
+
+const keys = new Set();
+const solids = [];
+const pickups = [];
+const beacons = [];
+const animated = [];
+
+const game = {
+  started: false,
+  won: false,
+  collected: 0,
+  compassFound: false,
+  time: 0,
+  pulse: 0,
+  mouseScanDelta: 0,
+  wheelRollDelta: 0,
+  revealTimer: 0,
+  devView: false,
+  activePickupIndex: 0,
+  lastAnchorHint: -Infinity,
+  lastPortalHint: -Infinity,
+  lastWallBumpAt: -Infinity,
+  messageTimer: 0,
+  lastTime: performance.now(),
+};
+
+let frameShard = null;
+let portal = null;
+let portalRing = null;
+let portalCore = null;
+let portalFloorRing = null;
+let portalBeam = null;
+let audioCtx = null;
+let masterGain = null;
+let nextSelfPingAt = 0;
+
+function basisPosition(right = 0, up = 0, forward = 0) {
+  return WORLD.fromBasisComponents(right, up, forward);
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function normalizeAngle(angle) {
+  let result = angle;
+  while (result > Math.PI) result -= Math.PI * 2;
+  while (result < -Math.PI) result += Math.PI * 2;
+  return result;
+}
+
+function material(color, options = {}) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive: options.emissive ?? color,
+    emissiveIntensity: options.emissiveIntensity ?? 0.08,
+    roughness: options.roughness ?? 0.62,
+    metalness: options.metalness ?? 0.05,
+    transparent: options.transparent ?? false,
+    opacity: options.opacity ?? 1,
+    wireframe: options.wireframe ?? false,
+  });
+}
+
+function addEdgeGlow(mesh, color = COLORS.wallEdge, opacity = 0.72) {
+  const edges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(mesh.geometry),
+    new THREE.LineBasicMaterial({ color, transparent: true, opacity }),
+  );
+  mesh.add(edges);
+  return edges;
+}
+
+function addLights() {
+  scene.background = new THREE.Color(COLORS.dark);
+  scene.fog = new THREE.FogExp2(COLORS.dark, 0.032);
+  scene.add(new THREE.HemisphereLight(0xc8fbff, 0x071214, 1.55));
+
+  const key = new THREE.DirectionalLight(0xffffff, 1.4);
+  key.position.copy(basisPosition(-5, 10, -3));
+  scene.add(key);
+
+  const rim = new THREE.PointLight(COLORS.magenta, 2.2, 32, 2);
+  rim.position.copy(basisPosition(8, 5, 6));
+  scene.add(rim);
+}
+
+function addFloor() {
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(42, 42, 1, 1),
+    material(COLORS.floor, { emissive: 0x06292d, emissiveIntensity: 0.26 }),
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -0.02;
+  scene.add(floor);
+
+  const grid = new THREE.GridHelper(42, 42, 0x72f5ff, 0x286b74);
+  grid.position.y = 0.015;
+  scene.add(grid);
+}
+
+function addSolidBox({ right, forward, width, depth, height, color = COLORS.wall, up = 0, glow = 0.36, edge = COLORS.wallEdge }) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(width, height, depth),
+    material(color, { emissive: color, emissiveIntensity: glow }),
+  );
+  mesh.position.copy(basisPosition(right, up + height / 2, forward));
+  addEdgeGlow(mesh, edge, 0.78);
+  scene.add(mesh);
+
+  solids.push({
+    minRight: right - width / 2,
+    maxRight: right + width / 2,
+    minForward: forward - depth / 2,
+    maxForward: forward + depth / 2,
+  });
+
+  return mesh;
+}
+
+function addMarkerBox({ right, forward, up, width, depth, height, color, spin = 0.2 }) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(width, height, depth),
+    material(color, { emissive: color, emissiveIntensity: 0.42, wireframe: true }),
+  );
+  mesh.position.copy(basisPosition(right, up + height / 2, forward));
+  scene.add(mesh);
+  animated.push({ object: mesh, baseY: mesh.position.y, spin, bob: 0.12 });
+  return mesh;
+}
+
+function addColumn(right, forward, radius, height, color) {
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius * 0.82, height, 18, 1),
+    material(color, { emissive: color, emissiveIntensity: 0.42 }),
+  );
+  mesh.position.copy(basisPosition(right, height / 2, forward));
+  addEdgeGlow(mesh, COLORS.wallEdge, 0.56);
+  scene.add(mesh);
+
+  solids.push({
+    minRight: right - radius,
+    maxRight: right + radius,
+    minForward: forward - radius,
+    maxForward: forward + radius,
+  });
+
+  return mesh;
+}
+
+function addPickup({
+  right,
+  forward,
+  up = 0.68,
+  color,
+  baseFreq,
+  label,
+  kind,
+  moving = false,
+  airborne = false,
+  approachYaw = null,
+  approachArc = Math.PI / 3.3,
+  motionRight = 0,
+  motionForward = 0,
+  motionSpeed = 1,
+  hint,
+}) {
+  const group = new THREE.Group();
+  group.position.copy(basisPosition(right, up, forward));
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.48, 0.045, 14, 54),
+    material(color, { emissive: color, emissiveIntensity: 0.85, metalness: 0.35 }),
+  );
+  ring.rotation.x = Math.PI / 2;
+
+  const core = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.28, 1),
+    material(color, { emissive: color, emissiveIntensity: 1.15, metalness: 0.2 }),
+  );
+
+  const floorRing = new THREE.Mesh(
+    new THREE.TorusGeometry(airborne ? 0.76 : 0.58, 0.025, 10, 64),
+    material(color, { emissive: color, emissiveIntensity: airborne ? 0.32 : 0.52, transparent: true, opacity: 0.56 }),
+  );
+  floorRing.rotation.x = Math.PI / 2;
+  floorRing.position.copy(basisPosition(right, 0.045, forward));
+  scene.add(floorRing);
+
+  const tether = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.018, 0.018, Math.max(up - 0.08, 0.12), 8, 1),
+    material(color, { emissive: color, emissiveIntensity: airborne ? 0.52 : 0.18, transparent: true, opacity: airborne ? 0.42 : 0.16 }),
+  );
+  tether.position.copy(basisPosition(right, up / 2, forward));
+  scene.add(tether);
+
+  group.add(ring, core);
+
+  let gate = null;
+  if (approachYaw !== null) {
+    gate = new THREE.Group();
+
+    const postMaterial = material(color, { emissive: color, emissiveIntensity: 0.7, metalness: 0.18 });
+    const leftPost = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.22, 0.08), postMaterial);
+    const rightPost = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.22, 0.08), postMaterial);
+    const topBar = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.08, 0.08), postMaterial);
+    const entryLine = new THREE.Mesh(
+      new THREE.BoxGeometry(1.38, 0.035, 0.035),
+      material(COLORS.green, { emissive: COLORS.green, emissiveIntensity: 0.82, transparent: true, opacity: 0.9 }),
+    );
+
+    leftPost.position.set(-0.62, 0, 0);
+    rightPost.position.set(0.62, 0, 0);
+    topBar.position.set(0, 0.62, 0);
+    entryLine.position.set(0, -0.58, -0.18);
+    gate.add(leftPost, rightPost, topBar, entryLine);
+    gate.position.y = 0.05;
+    gate.rotation.y = approachYaw;
+    group.add(gate);
+  }
+
+  scene.add(group);
+
+  const pickup = {
+    group,
+    ring,
+    core,
+    gate,
+    floorRing,
+    tether,
+    color,
+    label,
+    kind,
+    hint,
+    collected: false,
+    baseRight: right,
+    baseForward: forward,
+    right,
+    forward,
+    baseY: group.position.y,
+    up,
+    moving,
+    airborne,
+    approachYaw,
+    approachArc,
+    motionRight,
+    motionForward,
+    motionSpeed,
+    phase: pickups.length * 0.71,
+  };
+  pickups.push(pickup);
+  beacons.push({
+    object: group,
+    color,
+    baseFreq,
+    isActive: () => isPickupActive(pickup),
+    gainScale: 0.72,
+  });
+
+  pickup.group.visible = false;
+  pickup.floorRing.visible = false;
+  pickup.tether.visible = false;
+  return pickup;
+}
+
+function setPickupVisible(pickup, visible) {
+  pickup.group.visible = visible;
+  pickup.floorRing.visible = visible;
+  pickup.tether.visible = visible;
+}
+
+function isPickupActive(pickup) {
+  return !pickup.collected && pickups[game.activePickupIndex] === pickup;
+}
+
+function yawFromBasisDelta(right, forward) {
+  return Math.atan2(right, forward);
+}
+
+function updatePickupTransform(pickup, t) {
+  const sway = pickup.moving ? Math.sin(t * pickup.motionSpeed + pickup.phase) : 0;
+  pickup.right = pickup.baseRight + sway * pickup.motionRight;
+  pickup.forward = pickup.baseForward + Math.cos(t * pickup.motionSpeed + pickup.phase) * pickup.motionForward;
+  const bob = Math.sin(t * (pickup.airborne ? 2.4 : 1.7) + pickup.phase) * (pickup.airborne ? 0.14 : 0.05);
+
+  pickup.group.position.copy(basisPosition(pickup.right, pickup.baseY + bob, pickup.forward));
+  pickup.floorRing.position.copy(basisPosition(pickup.right, 0.045, pickup.forward));
+  pickup.tether.position.copy(basisPosition(pickup.right, (pickup.baseY + bob) / 2, pickup.forward));
+  pickup.tether.scale.y = Math.max((pickup.baseY + bob) / Math.max(pickup.baseY, 0.001), 0.05);
+}
+
+function activateCurrentPickup(prefix = '') {
+  for (const pickup of pickups) setPickupVisible(pickup, isPickupActive(pickup));
+  const active = pickups[game.activePickupIndex];
+  if (active) showMessage(`${prefix}${active.hint}`, prefix ? 4.6 : 3.8);
+}
+
+function addPortal() {
+  portal = new THREE.Group();
+  portal.position.copy(basisPosition(0, 1.7, 17.4));
+
+  portalRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1.35, 0.08, 18, 96),
+    material(COLORS.green, { emissive: COLORS.green, emissiveIntensity: 0.22, metalness: 0.45 }),
+  );
+  portalRing.rotation.y = Math.PI / 2;
+
+  portalCore = new THREE.Mesh(
+    new THREE.CircleGeometry(1.16, 64),
+    material(COLORS.cyan, { emissive: COLORS.cyan, emissiveIntensity: 0.04, transparent: true, opacity: 0.1 }),
+  );
+  portalCore.rotation.y = Math.PI / 2;
+
+  portalFloorRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1.72, 0.035, 12, 96),
+    material(COLORS.green, { emissive: COLORS.green, emissiveIntensity: 0.36, transparent: true, opacity: 0.34 }),
+  );
+  portalFloorRing.rotation.x = Math.PI / 2;
+  portalFloorRing.position.copy(basisPosition(0, 0.06, 17.4));
+  scene.add(portalFloorRing);
+
+  portalBeam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.035, 0.035, 3.8, 10, 1),
+    material(COLORS.green, { emissive: COLORS.green, emissiveIntensity: 0.28, transparent: true, opacity: 0.18 }),
+  );
+  portalBeam.position.copy(basisPosition(0, 1.9, 17.4));
+  scene.add(portalBeam);
+
+  portal.add(portalRing, portalCore);
+  scene.add(portal);
+
+  beacons.push({
+    object: portal,
+    color: COLORS.green,
+    baseFreq: 660,
+    isActive: () => game.collected === pickups.length,
+    gainScale: 1,
+  });
+}
+
+function addWorld() {
+  addLights();
+  addFloor();
+
+  addSolidBox({ right: 0, forward: -20.5, width: 42, depth: 0.8, height: 3.4, color: COLORS.wall, glow: 0.5 });
+  addSolidBox({ right: 0, forward: 20.5, width: 42, depth: 0.8, height: 3.4, color: COLORS.wall, glow: 0.5 });
+  addSolidBox({ right: -20.5, forward: 0, width: 0.8, depth: 42, height: 3.4, color: COLORS.wall, glow: 0.5 });
+  addSolidBox({ right: 20.5, forward: 0, width: 0.8, depth: 42, height: 3.4, color: COLORS.wall, glow: 0.5 });
+
+  addSolidBox({ right: -8.6, forward: -8.5, width: 8.4, depth: 0.75, height: 2.4, color: COLORS.blockAmber, glow: 0.46, edge: 0xfff1b8 });
+  addSolidBox({ right: 7.7, forward: -8.5, width: 7.8, depth: 0.75, height: 2.4, color: COLORS.blockAmber, glow: 0.46, edge: 0xfff1b8 });
+  addSolidBox({ right: 0.2, forward: 0.6, width: 3.2, depth: 3.2, height: 5.2, color: COLORS.blockViolet, glow: 0.5, edge: 0xf0d1ff });
+  addSolidBox({ right: -10.2, forward: 6.8, width: 0.9, depth: 8.8, height: 2.7, color: COLORS.blockBlue, glow: 0.46, edge: 0xcce0ff });
+  addSolidBox({ right: 10.1, forward: 7.6, width: 0.9, depth: 7.3, height: 2.7, color: COLORS.blockBlue, glow: 0.46, edge: 0xcce0ff });
+  addSolidBox({ right: 4.8, forward: 12.2, width: 7.6, depth: 0.7, height: 2.4, color: COLORS.blockGreen, glow: 0.44, edge: 0xd8ffe6 });
+
+  addColumn(-13, -1.8, 0.72, 4.8, COLORS.cyan);
+  addColumn(13, -1.8, 0.72, 4.8, COLORS.cyan);
+  addColumn(-4.9, 11.7, 0.6, 4.3, COLORS.magenta);
+  addColumn(7.7, -14, 0.52, 3.8, COLORS.amber);
+
+  addMarkerBox({ right: -14, forward: -14, up: 1.9, width: 0.35, depth: 0.35, height: 3.1, color: COLORS.cyan, spin: 0.4 });
+  addMarkerBox({ right: 13.5, forward: -5.7, up: 2.1, width: 0.48, depth: 0.48, height: 2.4, color: COLORS.amber, spin: -0.32 });
+  addMarkerBox({ right: -13, forward: 14, up: 2.2, width: 0.42, depth: 0.42, height: 2.8, color: COLORS.magenta, spin: 0.27 });
+  addMarkerBox({ right: 13.7, forward: 15.2, up: 1.8, width: 0.36, depth: 0.36, height: 3.5, color: COLORS.green, spin: -0.18 });
+
+  addPickup({
+    right: -5.6,
+    forward: -12.6,
+    color: COLORS.cyan,
+    baseFreq: 330,
+    label: 'still',
+    kind: 'still / any side',
+    hint: 'Anchor 1: touch the floor ring from any side.',
+  });
+  addPickup({
+    right: 8.9,
+    forward: -4.8,
+    color: COLORS.amber,
+    baseFreq: 410,
+    label: 'gate',
+    kind: 'still / gated side',
+    approachYaw: Math.PI,
+    approachArc: Math.PI / 4.4,
+    hint: 'Anchor 2: enter the gate from its open side.',
+  });
+  addPickup({
+    right: -10.2,
+    forward: 3.1,
+    color: COLORS.magenta,
+    baseFreq: 500,
+    label: 'shuttle',
+    kind: 'moving line / any side',
+    moving: true,
+    motionRight: 2.6,
+    motionSpeed: 1.05,
+    hint: 'Anchor 3: read the regular left-right shuttle, then touch it.',
+  });
+  addPickup({
+    right: 8.4,
+    forward: 10.6,
+    color: COLORS.green,
+    baseFreq: 570,
+    label: 'moving gate',
+    kind: 'moving ellipse / gated side',
+    moving: true,
+    approachYaw: -Math.PI / 2,
+    approachArc: Math.PI / 5,
+    motionRight: 1.8,
+    motionForward: 0.9,
+    motionSpeed: 0.86,
+    hint: 'Anchor 4: track the oval motion and enter through the lit side.',
+  });
+  addPickup({
+    right: -14.2,
+    forward: 15.1,
+    up: 2.05,
+    color: COLORS.red,
+    baseFreq: 650,
+    label: 'air',
+    kind: 'air / jump',
+    airborne: true,
+    hint: 'Anchor 5: jump through the suspended anchor.',
+  });
+  addFrameShard();
+  addPortal();
+  activateCurrentPickup();
+}
+
+// Decision 4(d): the compass is a shard of the painting's frame, found by ear.
+function addFrameShard() {
+  const group = new THREE.Group();
+  group.position.copy(basisPosition(14.8, 0.82, -15.2));
+
+  const wood = material(0xc98a4b, { emissive: 0x8a5a2e, emissiveIntensity: 0.5, roughness: 0.8 });
+  const barA = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.1, 0.1), wood);
+  const barB = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.34, 0.1), wood);
+  barA.rotation.z = 0.42;
+  barB.position.set(-0.28, -0.2, 0);
+  addEdgeGlow(barA, 0xffd9a0, 0.5);
+  group.add(barA, barB);
+  scene.add(group);
+
+  frameShard = { group, baseY: group.position.y };
+  beacons.push({
+    object: group,
+    color: 0xc98a4b,
+    baseFreq: 236,
+    isActive: () => !game.compassFound,
+    gainScale: 0.55,
+    timbre: 'wood',
+  });
+}
+
+function updateFrameShard(t, dt) {
+  if (!frameShard || game.compassFound) return;
+
+  frameShard.group.position.y = frameShard.baseY + Math.sin(t * 1.3) * 0.06;
+  frameShard.group.rotation.y += 0.5 * dt;
+
+  if (WORLD.distanceSqPlanar(player.position, frameShard.group.position) < 1.1 * 1.1) {
+    game.compassFound = true;
+    frameShard.group.visible = false;
+    playAnchorChime(0xc98a4b, 0.9);
+    game.pulse = Math.max(game.pulse, 0.6);
+    showMessage('A shard of the frame — the world regains its north.', 3.6);
+  }
+}
+
+function buildAnchorSegments() {
+  for (const pickup of pickups) {
+    const segment = document.createElement('span');
+    segment.className = 'anchor-segment';
+    dom.anchorSegments.appendChild(segment);
+    pickup.segment = segment;
+  }
+}
+
+function directionFrame() {
+  return WORLD.yawPitchRollFrame(player.yaw, 0, player.scanRoll);
+}
+
+function movementFrame() {
+  return WORLD.yawPitchRollFrame(player.yaw, 0, 0);
+}
+
+function yawToObject(object) {
+  const delta = object.position.clone().sub(player.position);
+  return WORLD.forwardToYaw(delta);
+}
+
+function playerBasis() {
+  return WORLD.toBasisComponents(player.position);
+}
+
+function signalForBeacon(beacon) {
+  if (!beacon.isActive()) return 0;
+
+  const distance = Math.sqrt(WORLD.distanceSqPlanar(player.position, beacon.object.position));
+  const relativeYaw = Math.abs(normalizeAngle(yawToObject(beacon.object) - player.yaw));
+  const alignment = Math.max(0, Math.cos(relativeYaw));
+  return clamp((0.28 + alignment * 0.72) / (1 + distance * 0.1), 0, 1);
+}
+
+function resolveCollision() {
+  const planar = WORLD.toBasisComponents(player.position);
+  const startRight = planar.right;
+  const startForward = planar.forward;
+  planar.right = clamp(planar.right, BOUNDS.minRight, BOUNDS.maxRight);
+  planar.forward = clamp(planar.forward, BOUNDS.minForward, BOUNDS.maxForward);
+
+  for (const solid of solids) {
+    const nearestRight = clamp(planar.right, solid.minRight, solid.maxRight);
+    const nearestForward = clamp(planar.forward, solid.minForward, solid.maxForward);
+    let deltaRight = planar.right - nearestRight;
+    let deltaForward = planar.forward - nearestForward;
+    let distanceSq = deltaRight * deltaRight + deltaForward * deltaForward;
+
+    if (distanceSq >= PLAYER_RADIUS * PLAYER_RADIUS) continue;
+
+    if (distanceSq < 0.0001) {
+      const exits = [
+        { amount: Math.abs(planar.right - solid.minRight), axis: 'right', sign: -1 },
+        { amount: Math.abs(solid.maxRight - planar.right), axis: 'right', sign: 1 },
+        { amount: Math.abs(planar.forward - solid.minForward), axis: 'forward', sign: -1 },
+        { amount: Math.abs(solid.maxForward - planar.forward), axis: 'forward', sign: 1 },
+      ].sort((a, b) => a.amount - b.amount);
+      const exit = exits[0];
+      planar[exit.axis] += (exit.amount + PLAYER_RADIUS) * exit.sign;
+      continue;
+    }
+
+    const distance = Math.sqrt(distanceSq);
+    const push = PLAYER_RADIUS - distance;
+    deltaRight /= distance;
+    deltaForward /= distance;
+    planar.right += deltaRight * push;
+    planar.forward += deltaForward * push;
+  }
+
+  const collided =
+    Math.abs(planar.right - startRight) > 0.0001 ||
+    Math.abs(planar.forward - startForward) > 0.0001;
+  planar.right = clamp(planar.right, BOUNDS.minRight, BOUNDS.maxRight);
+  planar.forward = clamp(planar.forward, BOUNDS.minForward, BOUNDS.maxForward);
+  WORLD.fromBasisComponents(planar.right, 0, planar.forward, player.position);
+  return collided;
+}
+
+function syncCameraToPlayer() {
+  const lookFrame = directionFrame();
+  const eye = player.position.clone();
+  WORLD.addHeight(eye, EYE_HEIGHT + player.height);
+  camera.position.copy(eye);
+  camera.up.copy(lookFrame.up);
+  camera.lookAt(eye.clone().add(lookFrame.forward));
+}
+
+function inputLocked() {
+  return game.revealTimer > 0;
+}
+
+function clearBufferedInput() {
+  game.mouseScanDelta = 0;
+  game.wheelRollDelta = 0;
+  player.angularVelocity = 0;
+  player.rollVelocity = 0;
+}
+
+function updatePlayer(dt) {
+  if (inputLocked()) {
+    clearBufferedInput();
+    dom.reticle.style.setProperty('--scan-roll', `${player.scanRoll}rad`);
+    syncCameraToPlayer();
+    return;
+  }
+
+  const scanTurn = (keys.has('ArrowLeft') ? 1 : 0) - (keys.has('ArrowRight') ? 1 : 0);
+  const rollInput = (keys.has('ArrowUp') ? 1 : 0) - (keys.has('ArrowDown') ? 1 : 0);
+  const forward =
+    (keys.has('KeyW') ? 1 : 0) -
+    (keys.has('KeyS') ? 1 : 0);
+  const strafe =
+    (keys.has('KeyD') ? 1 : 0) -
+    (keys.has('KeyA') ? 1 : 0);
+  const focus = keys.has('ShiftLeft') || keys.has('ShiftRight');
+
+  const turnSpeed = TURN_SPEED * (focus ? 0.38 : 1);
+  const oldYaw = player.yaw;
+  player.yaw = normalizeAngle(player.yaw + scanTurn * turnSpeed * dt + game.mouseScanDelta * MOUSE_SCAN_SPEED);
+  player.angularVelocity = normalizeAngle(player.yaw - oldYaw) / Math.max(dt, 0.001);
+  game.mouseScanDelta = 0;
+
+  const oldRoll = player.scanRoll;
+  player.scanRoll = clamp(
+    player.scanRoll + rollInput * ROLL_SPEED * dt - game.wheelRollDelta * WHEEL_ROLL_SPEED,
+    -MAX_SCAN_ROLL,
+    MAX_SCAN_ROLL,
+  );
+  player.rollVelocity = (player.scanRoll - oldRoll) / Math.max(dt, 0.001);
+  game.wheelRollDelta = 0;
+
+  if (!player.grounded || player.verticalVelocity !== 0) {
+    player.verticalVelocity -= GRAVITY * dt;
+    player.height += player.verticalVelocity * dt;
+    if (player.height <= 0) {
+      player.height = 0;
+      player.verticalVelocity = 0;
+      player.grounded = true;
+    }
+  }
+
+  const moveFrame = movementFrame();
+  const movement = new THREE.Vector3();
+
+  if (forward) movement.addScaledVector(moveFrame.forward, forward);
+  if (strafe) movement.addScaledVector(moveFrame.right, strafe);
+
+  if (movement.lengthSq() > 1) movement.normalize();
+  const triedToMove = movement.lengthSq() > 0;
+  if (movement.lengthSq() > 0) {
+    const speed = MOVE_SPEED * (focus ? 0.46 : 1);
+    player.position.addScaledVector(movement, speed * dt);
+    game.pulse = Math.max(game.pulse, 0.08);
+  }
+
+  dom.reticle.style.setProperty('--scan-roll', `${player.scanRoll}rad`);
+
+  const hitWall = resolveCollision();
+  if (hitWall && triedToMove) playWallBump();
+  syncCameraToPlayer();
+}
+
+function isPlayerInsidePickup(pickup) {
+  const planarDistanceSq = WORLD.distanceSqPlanar(player.position, pickup.group.position);
+  if (planarDistanceSq > PICKUP_TOUCH_RADIUS * PICKUP_TOUCH_RADIUS) return false;
+
+  if (pickup.airborne) {
+    const playerTouchHeight = player.height + AIR_TOUCH_HEIGHT;
+    if (Math.abs(pickup.group.position.y - playerTouchHeight) > AIR_TOUCH_TOLERANCE) return false;
+  }
+
+  return true;
+}
+
+function isPlayerOnPickupApproachSide(pickup) {
+  if (pickup.approachYaw === null) return true;
+
+  const planar = playerBasis();
+  const sideYaw = yawFromBasisDelta(planar.right - pickup.right, planar.forward - pickup.forward);
+  return Math.abs(normalizeAngle(sideYaw - pickup.approachYaw)) <= pickup.approachArc;
+}
+
+function collectPickup(pickup) {
+  pickup.collected = true;
+  setPickupVisible(pickup, false);
+  game.collected += 1;
+  game.activePickupIndex += 1;
+  game.pulse = 1;
+  game.revealTimer = REVEAL_DURATION;
+  playAnchorChime(pickup.color, 1);
+
+  if (game.collected === pickups.length) {
+    showMessage('All anchors stabilized. GOAL: follow the bright green door.', 5.2);
+    return;
+  }
+
+  activateCurrentPickup(`Anchor ${game.collected} stabilized. `);
+}
+
+function updatePickups(t, dt) {
+  for (const [index, pickup] of pickups.entries()) {
+    const active = isPickupActive(pickup);
+    if (!active) continue;
+
+    updatePickupTransform(pickup, t);
+    pickup.ring.rotation.z += (1.5 + index * 0.24) * dt;
+    pickup.core.rotation.x += 1.08 * dt;
+    pickup.core.rotation.y += 1.86 * dt;
+    pickup.floorRing.rotation.z -= 0.6 * dt;
+    if (pickup.gate) pickup.gate.rotation.z = Math.sin(t * 1.6 + pickup.phase) * 0.05;
+
+    if (!isPlayerInsidePickup(pickup)) continue;
+
+    if (!isPlayerOnPickupApproachSide(pickup)) {
+      if (t - game.lastAnchorHint > 1.8) {
+        game.lastAnchorHint = t;
+        game.pulse = Math.max(game.pulse, 0.35);
+        showMessage('This anchor has a face. Slip in from the lit side.', 1.6);
+      }
+      continue;
+    }
+
+    collectPickup(pickup);
+  }
+}
+
+function updatePortal(t, dt) {
+  if (!portal) return;
+
+  const open = game.collected === pickups.length;
+  const distanceSq = WORLD.distanceSqPlanar(player.position, portal.position);
+  const glow = open ? 1.15 + Math.sin(t * 3) * 0.22 : 0.16;
+  portalRing.material.emissiveIntensity = glow;
+  portalCore.material.opacity = open ? 0.34 + Math.sin(t * 4) * 0.08 : 0.08;
+  portalCore.material.emissiveIntensity = open ? 0.8 : 0.05;
+  portalFloorRing.material.opacity = open ? 0.72 + Math.sin(t * 4.2) * 0.12 : 0.18;
+  portalFloorRing.material.emissiveIntensity = open ? 1.1 : 0.24;
+  portalBeam.material.opacity = open ? 0.54 + Math.sin(t * 3.6) * 0.1 : 0.1;
+  portalBeam.material.emissiveIntensity = open ? 0.95 : 0.16;
+  portalFloorRing.rotation.z -= (open ? 1.08 : 0.24) * dt;
+  portalBeam.rotation.y += (open ? 0.6 : 0.18) * dt;
+  portal.rotation.z += (open ? 0.72 : 0.18) * dt;
+
+  if (!open && distanceSq < 2.2 * 2.2 && t - game.lastPortalHint > 2.4) {
+    const rest = pickups.length - game.collected;
+    game.lastPortalHint = t;
+    game.pulse = Math.max(game.pulse, 0.45);
+    showMessage(`${rest} anchor${rest === 1 ? '' : 's'} still hold the door flat.`, 2.2);
+  }
+
+  if (open && !game.won && distanceSq < 2.2 * 2.2) {
+    game.won = true;
+    playAnchorChime(COLORS.green, 1.35);
+    game.revealTimer = REVEAL_DURATION;
+    showMessage('The flat traveler crosses the third axis.', 8);
+    dom.modeReadout.textContent = 'VOLUME HELD';
+  }
+}
+
+function updateWorldAnimation(dt, t) {
+  for (const item of animated) {
+    item.object.rotation.y += item.spin * dt;
+    item.object.position.y = item.baseY + Math.sin(t * 1.5 + item.baseY) * item.bob;
+  }
+}
+
+function startAudio() {
+  if (audioCtx) return;
+
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+
+  audioCtx = new AudioContext();
+  audioCtx.resume();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.9;
+  const limiter = audioCtx.createDynamicsCompressor();
+  limiter.threshold.value = -12;
+  limiter.knee.value = 24;
+  limiter.ratio.value = 12;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.25;
+  masterGain.connect(limiter);
+  limiter.connect(audioCtx.destination);
+
+  for (const beacon of beacons) {
+    const osc = audioCtx.createOscillator();
+    const filter = audioCtx.createBiquadFilter();
+    const gain = audioCtx.createGain();
+    const panner = audioCtx.createStereoPanner();
+
+    const wooden = beacon.timbre === 'wood';
+    osc.type = wooden ? 'triangle' : 'sine';
+    osc.frequency.value = beacon.baseFreq;
+    filter.type = wooden ? 'lowpass' : 'bandpass';
+    filter.frequency.value = beacon.baseFreq * (wooden ? 3.2 : 1.6);
+    filter.Q.value = wooden ? 2 : 6;
+    gain.gain.value = 0;
+    panner.pan.value = 0;
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(panner);
+    panner.connect(masterGain);
+
+    osc.start();
+    beacon.audio = { osc, filter, gain, panner };
+  }
+
+  playSelfPing();
+}
+
+function updateAudio() {
+  if (!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+  if (now >= nextSelfPingAt) {
+    playSelfPing(0.42);
+    nextSelfPingAt = now + ECHO_PERIOD;
+  }
+
+  const phase = (now % ECHO_PERIOD) / ECHO_PERIOD;
+  const echoPulse = Math.exp(-phase * 9);
+  const tiltStereo = Math.abs(Math.sin(player.scanRoll));
+
+  for (const beacon of beacons) {
+    const signal = signalForBeacon(beacon);
+    const rel = normalizeAngle(yawToObject(beacon.object) - player.yaw);
+    const distance = Math.sqrt(WORLD.distanceSqPlanar(player.position, beacon.object.position));
+    const alignment = Math.max(0, Math.cos(rel));
+    const scanDoppler = clamp(rel * player.angularVelocity * SCAN_DOPPLER_AMOUNT, -0.26, 0.26);
+    const scanEnergy = clamp(Math.abs(player.angularVelocity) * signal, 0, 1);
+    const distancePitch = clamp(1.0 - distance / 24, 0, 1) * 0.22;
+    const echoSweep = echoPulse * (0.14 + signal * 0.16);
+    const targetGain = Math.pow(signal, 0.92) * (0.22 + echoPulse * 0.68 + scanEnergy * 0.66) * beacon.gainScale;
+    const targetFreq = beacon.baseFreq * (0.82 + alignment * 0.16 + distancePitch + echoSweep + scanDoppler);
+    const targetFilter = beacon.baseFreq * (1.4 + signal * 1.8 + echoPulse * 2.4 + scanEnergy * 2.8);
+
+    const targetPan = clamp(-EAR_SEPARATION * tiltStereo * Math.sin(rel), -1, 1);
+
+    beacon.audio.gain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.06);
+    beacon.audio.osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.045);
+    beacon.audio.filter.frequency.setTargetAtTime(targetFilter, audioCtx.currentTime, 0.045);
+    beacon.audio.filter.Q.setTargetAtTime(5 + scanEnergy * 10, audioCtx.currentTime, 0.06);
+    beacon.audio.panner.pan.setTargetAtTime(targetPan, audioCtx.currentTime, 0.06);
+  }
+}
+
+function playSelfPing(scale = 1) {
+  if (!audioCtx || !masterGain) return;
+
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(1700, now);
+  osc.frequency.exponentialRampToValueAtTime(720, now + 0.055);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.1 * scale, now + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start(now);
+  osc.stop(now + 0.09);
+
+  emitEchoes(clamp(scale, 0.3, 1));
+}
+
+function rayAabbDistance(originRight, originForward, dirRight, dirForward, box) {
+  let tMin = 0;
+  let tMax = Infinity;
+
+  if (Math.abs(dirRight) < 1e-9) {
+    if (originRight < box.minRight || originRight > box.maxRight) return null;
+  } else {
+    let t1 = (box.minRight - originRight) / dirRight;
+    let t2 = (box.maxRight - originRight) / dirRight;
+    if (t1 > t2) [t1, t2] = [t2, t1];
+    tMin = Math.max(tMin, t1);
+    tMax = Math.min(tMax, t2);
+    if (tMin > tMax) return null;
+  }
+
+  if (Math.abs(dirForward) < 1e-9) {
+    if (originForward < box.minForward || originForward > box.maxForward) return null;
+  } else {
+    let t1 = (box.minForward - originForward) / dirForward;
+    let t2 = (box.maxForward - originForward) / dirForward;
+    if (t1 > t2) [t1, t2] = [t2, t1];
+    tMin = Math.max(tMin, t1);
+    tMax = Math.min(tMax, t2);
+    if (tMin > tMax) return null;
+  }
+
+  return tMin > 1e-6 ? tMin : null;
+}
+
+function castEchoRay(originRight, originForward, dirRight, dirForward) {
+  let nearest = Infinity;
+  for (const solid of solids) {
+    const distance = rayAabbDistance(originRight, originForward, dirRight, dirForward, solid);
+    if (distance !== null && distance < nearest) nearest = distance;
+  }
+  return nearest;
+}
+
+function emitEchoes(scale = 1) {
+  if (!audioCtx || !masterGain || !game.started) return;
+
+  const planar = playerBasis();
+  const tiltStereo = Math.abs(Math.sin(player.scanRoll));
+  for (const offset of ECHO_RAY_OFFSETS) {
+    const rayYaw = player.yaw + offset;
+    const dirRight = -Math.sin(rayYaw);
+    const dirForward = Math.cos(rayYaw);
+    const distance = castEchoRay(planar.right, planar.forward, dirRight, dirForward);
+    if (!Number.isFinite(distance) || distance > MAX_ECHO_RANGE) continue;
+
+    const delay = (distance * 2) / SOUND_SPEED;
+    // positive ray offset = scan-left ray; left = negative pan (decision ③)
+    const pan = offset === 0 ? 0 : -Math.sign(offset) * EAR_SEPARATION * tiltStereo;
+    playEchoReturn(delay, distance, scale * (offset === 0 ? 1 : 0.72), pan);
+  }
+}
+
+function playEchoReturn(delay, distance, scale, pan = 0) {
+  const start = audioCtx.currentTime + delay;
+  const closeness = clamp(1 - distance / MAX_ECHO_RANGE, 0, 1);
+  const osc = audioCtx.createOscillator();
+  const filter = audioCtx.createBiquadFilter();
+  const gain = audioCtx.createGain();
+
+  // near = sharp "kin", far = dull "bon"
+  const freq = 240 + closeness * 900;
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(freq * 1.12, start);
+  osc.frequency.exponentialRampToValueAtTime(freq, start + 0.03);
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(500 + closeness * 3800, start);
+
+  const peak = Math.max(ECHO_GAIN * scale * (0.18 + closeness * 0.82), 0.0002);
+  const duration = 0.05 + (1 - closeness) * 0.09;
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(peak, start + 0.006);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  if (pan !== 0) {
+    const panner = audioCtx.createStereoPanner();
+    panner.pan.setValueAtTime(clamp(pan, -1, 1), start);
+    gain.connect(panner);
+    panner.connect(masterGain);
+  } else {
+    gain.connect(masterGain);
+  }
+  osc.start(start);
+  osc.stop(start + duration + 0.02);
+}
+
+function playWallBump() {
+  if (!audioCtx || !masterGain) return;
+
+  const now = audioCtx.currentTime;
+  if (now - game.lastWallBumpAt < 0.22) return;
+  game.lastWallBumpAt = now;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(115, now);
+  osc.frequency.exponentialRampToValueAtTime(72, now + 0.13);
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(310, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.18, now + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(masterGain);
+  osc.start(now);
+  osc.stop(now + 0.2);
+}
+
+function playAnchorChime(color, scale = 1) {
+  if (!audioCtx || !masterGain) return;
+
+  const now = audioCtx.currentTime;
+  const base = color === COLORS.green ? 740 : color === COLORS.red ? 620 : color === COLORS.magenta ? 560 : color === COLORS.amber ? 470 : 390;
+  const output = audioCtx.createGain();
+  output.gain.setValueAtTime(0.0001, now);
+  output.gain.exponentialRampToValueAtTime(0.22 * scale, now + 0.018);
+  output.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+  output.connect(masterGain);
+
+  for (const [index, ratio] of [1, 1.5, 2.02].entries()) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = index === 0 ? 'triangle' : 'sine';
+    osc.frequency.setValueAtTime(base * ratio, now);
+    osc.frequency.exponentialRampToValueAtTime(base * ratio * 1.18, now + 0.12);
+    gain.gain.value = 1 / (index + 1.2);
+    osc.connect(gain);
+    gain.connect(output);
+    osc.start(now + index * 0.018);
+    osc.stop(now + 0.42);
+  }
+}
+
+function showMessage(text, duration = 3.2) {
+  dom.message.textContent = text;
+  game.messageTimer = duration;
+}
+
+function updateMessage(dt) {
+  if (game.messageTimer <= 0) return;
+  game.messageTimer -= dt;
+  if (game.messageTimer <= 0 && !game.won) {
+    const active = pickups[game.activePickupIndex];
+    dom.message.textContent =
+      game.collected === pickups.length
+        ? 'GOAL: enter the bright green door.'
+        : active
+          ? active.hint
+          : 'The ruin is legible only while it moves.';
+  }
+}
+
+function updateHud(t) {
+  const strongest = beacons.reduce((max, beacon) => Math.max(max, signalForBeacon(beacon)), 0);
+  const drift = Math.hypot(player.angularVelocity, player.rollVelocity * 0.75);
+  dom.signalBar.style.width = `${Math.round(strongest * 100)}%`;
+  dom.driftBar.style.width = `${Math.round(clamp(Math.abs(drift) * 30, 0, 100))}%`;
+
+  for (const pickup of pickups) {
+    pickup.segment.style.background = pickup.collected
+      ? `#${pickup.color.toString(16).padStart(6, '0')}`
+      : 'rgba(2, 3, 4, 0.4)';
+    pickup.segment.classList.toggle('active', isPickupActive(pickup));
+  }
+
+  if (game.compassFound) {
+    dom.ribDrift.style.opacity = '0';
+    for (const letter of ribbonLetters) {
+      const offset = -normalizeAngle(letter.yaw - player.yaw) * RIBBON_PX_PER_RADIAN;
+      letter.el.style.opacity = Math.abs(offset) < RIBBON_HALF_WIDTH ? '1' : '0';
+      letter.el.style.transform = `translate(calc(-50% + ${offset.toFixed(1)}px), -50%)`;
+    }
+  } else {
+    // uncalibrated: no letters, just a faint mark adrift
+    dom.ribDrift.style.opacity = '1';
+    const wander = Math.sin(t * 0.7) * 12 + Math.sin(t * 1.7) * 5;
+    dom.ribDrift.style.transform = `translate(calc(-50% + ${wander.toFixed(1)}px), -50%)`;
+    for (const letter of ribbonLetters) letter.el.style.opacity = '0';
+  }
+
+  if (game.devView) {
+    dom.modeReadout.textContent = 'DEV 3D';
+    dom.modeReadout.title = 'Developer 3D view';
+    return;
+  }
+
+  if (!game.won) {
+    const active = pickups[game.activePickupIndex];
+    dom.modeReadout.textContent = game.collected === pickups.length ? 'GOAL' : `ANCHOR ${game.activePickupIndex + 1}`;
+    if (active) dom.modeReadout.title = active.kind;
+  }
+}
+
+function drawFull3D(width, height, alpha = 1) {
+  renderer.setSize(width, height, false);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+  renderer.render(scene, camera);
+
+  mentalCtx.globalCompositeOperation = 'source-over';
+  mentalCtx.globalAlpha = alpha;
+  mentalCtx.drawImage(renderer.domElement, 0, 0, width, height);
+  mentalCtx.globalAlpha = 1;
+
+  renderer.setSize(SENSOR_RENDER_WIDTH, height, false);
+  camera.aspect = SENSOR_RENDER_WIDTH / height;
+  camera.updateProjectionMatrix();
+}
+
+function drawMentalImage(dt) {
+  const width = dom.mentalCanvas.width;
+  const height = dom.mentalCanvas.height;
+  const yawDelta = normalizeAngle(player.yaw - player.lastYaw);
+  const shift = yawDelta * PANORAMA_PIXELS_PER_RADIAN;
+
+  copyCtx.fillStyle = '#020304';
+  copyCtx.fillRect(0, 0, width, height);
+  copyCtx.drawImage(dom.mentalCanvas, shift, 0);
+  mentalCtx.drawImage(copyCanvas, 0, 0);
+
+  const drift = Math.hypot(player.angularVelocity, player.rollVelocity * 0.75);
+  const motionDecay = clamp(Math.abs(drift) * 0.005, 0, 0.03);
+  mentalCtx.fillStyle = `rgba(2, 3, 4, ${0.03 + motionDecay})`;
+  mentalCtx.fillRect(0, 0, width, height);
+
+  if (game.devView) {
+    drawFull3D(width, height);
+    player.lastYaw = player.yaw;
+    return;
+  }
+
+  if (game.revealTimer > 0) {
+    const revealAlpha = clamp(game.revealTimer / REVEAL_DURATION, 0, 1);
+    drawFull3D(width, height, 0.18 + revealAlpha * 0.62);
+    mentalCtx.fillStyle = `rgba(125, 255, 154, ${revealAlpha * 0.08})`;
+    mentalCtx.fillRect(0, 0, width, height);
+
+    game.revealTimer = Math.max(0, game.revealTimer - dt);
+  }
+
+  renderer.render(scene, camera);
+
+  const source = renderer.domElement;
+  const focus = keys.has('ShiftLeft') || keys.has('ShiftRight');
+  const sourceWidth = focus ? 8 : 3;
+  const drawWidth = focus ? 18 : 8;
+  const sourceX = Math.floor(source.width / 2 - sourceWidth / 2);
+
+  mentalCtx.globalCompositeOperation = 'source-over';
+  mentalCtx.globalAlpha = 0.86;
+  mentalCtx.save();
+  mentalCtx.translate(width / 2, height / 2);
+  mentalCtx.rotate(player.scanRoll);
+  mentalCtx.drawImage(source, sourceX, 0, sourceWidth, source.height, -drawWidth / 2, -height / 2, drawWidth, height);
+  mentalCtx.restore();
+  mentalCtx.globalAlpha = 1;
+
+  if (game.pulse > 0.01) {
+    const alpha = game.pulse * 0.12;
+    mentalCtx.globalCompositeOperation = 'source-atop';
+    mentalCtx.fillStyle = `rgba(68, 231, 255, ${alpha})`;
+    mentalCtx.save();
+    mentalCtx.translate(width / 2, height / 2);
+    mentalCtx.rotate(player.scanRoll);
+    mentalCtx.fillRect(-drawWidth / 2 - 2, -height / 2, drawWidth + 4, height);
+    mentalCtx.restore();
+    mentalCtx.globalCompositeOperation = 'source-over';
+    game.pulse *= Math.pow(0.08, dt);
+  }
+
+  mentalCtx.globalCompositeOperation = 'source-over';
+  mentalCtx.fillStyle = 'rgba(255,255,255,0.72)';
+  mentalCtx.save();
+  mentalCtx.translate(width / 2, height / 2);
+  mentalCtx.rotate(player.scanRoll);
+  mentalCtx.fillRect(0, height / 2 - 24, 1, 18);
+  mentalCtx.restore();
+
+  player.lastYaw = player.yaw;
+}
+
+function resize() {
+  const width = Math.max(320, window.innerWidth);
+  const height = Math.max(240, window.innerHeight);
+
+  dom.mentalCanvas.width = width;
+  dom.mentalCanvas.height = height;
+  copyCanvas.width = width;
+  copyCanvas.height = height;
+
+  renderer.setSize(SENSOR_RENDER_WIDTH, height, false);
+  camera.aspect = SENSOR_RENDER_WIDTH / height;
+  camera.updateProjectionMatrix();
+
+  mentalCtx.fillStyle = '#020304';
+  mentalCtx.fillRect(0, 0, width, height);
+}
+
+function begin() {
+  if (game.started) return;
+  game.started = true;
+  dom.startVeil.classList.add('hidden');
+  startAudio();
+  if (audioCtx) audioCtx.resume();
+  showMessage('The echo line finds depth.', 3.2);
+}
+
+function jump() {
+  if (!game.started || !player.grounded || inputLocked()) return;
+  player.grounded = false;
+  player.verticalVelocity = JUMP_SPEED;
+  game.pulse = 1;
+  playSelfPing(1.25);
+}
+
+function resetTilt() {
+  if (inputLocked()) return;
+  player.scanRoll = 0;
+  player.rollVelocity = 0;
+  game.wheelRollDelta = 0;
+  dom.reticle.style.setProperty('--scan-roll', '0rad');
+  game.pulse = Math.max(game.pulse, 0.45);
+  showMessage('Scan tilt reset.', 1.4);
+}
+
+function requestPointerLock() {
+  if (document.pointerLockElement || !dom.mentalCanvas.requestPointerLock) return;
+  dom.mentalCanvas.requestPointerLock();
+}
+
+function handleKeyDown(event) {
+  if (event.code === 'Digit3') {
+    event.preventDefault();
+    game.devView = !game.devView;
+    showMessage(game.devView ? 'Developer 3D view enabled.' : 'Developer 3D view disabled.', 1.8);
+    return;
+  }
+
+  if (inputLocked()) {
+    if (event.code === 'Space' || event.code.startsWith('Arrow') || event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+      event.preventDefault();
+    }
+    return;
+  }
+
+  keys.add(event.code);
+
+  if (
+    event.code === 'Space' ||
+    event.code.startsWith('Arrow') ||
+    event.code === 'ShiftLeft' ||
+    event.code === 'ShiftRight'
+  ) {
+    event.preventDefault();
+  }
+
+  if (event.code === 'Enter') begin();
+  if ((event.code === 'ArrowUp' || event.code === 'ArrowDown') && keys.has('ArrowUp') && keys.has('ArrowDown') && !event.repeat) {
+    if (!game.started) begin();
+    resetTilt();
+  }
+  if (event.code === 'Space' && !event.repeat) {
+    if (!game.started) {
+      begin();
+    } else {
+      jump();
+    }
+  }
+}
+
+function handleKeyUp(event) {
+  keys.delete(event.code);
+}
+
+function resetTiltFromMiddleButton(event) {
+  if (event.button !== 1) return false;
+  event.preventDefault();
+  if (inputLocked()) return true;
+  if (!game.started) begin();
+  resetTilt();
+  return true;
+}
+
+function handlePointerDown(event) {
+  if (inputLocked()) {
+    event.preventDefault();
+    return;
+  }
+  if (resetTiltFromMiddleButton(event)) return;
+  if (event.button !== 0) return;
+  if (!game.started) {
+    begin();
+    requestPointerLock();
+    return;
+  }
+
+  jump();
+  requestPointerLock();
+}
+
+function handleMouseMove(event) {
+  if (!game.started || inputLocked()) return;
+  game.mouseScanDelta -= clamp(event.movementX || 0, -80, 80);
+}
+
+function handleWheel(event) {
+  event.preventDefault();
+  if (!game.started || inputLocked()) return;
+  game.wheelRollDelta += clamp(event.deltaY || 0, -120, 120);
+}
+
+function handleMouseDown(event) {
+  resetTiltFromMiddleButton(event);
+}
+
+function handleAuxClick(event) {
+  resetTiltFromMiddleButton(event);
+}
+
+function loop(time) {
+  const dt = Math.min(0.05, (time - game.lastTime) / 1000 || 0);
+  game.lastTime = time;
+
+  const locked = inputLocked();
+  updatePlayer(dt);
+  if (!locked) {
+    game.time += dt;
+    updateWorldAnimation(dt, game.time);
+    updatePickups(game.time, dt);
+    updateFrameShard(game.time, dt);
+    updatePortal(game.time, dt);
+  }
+  updateAudio();
+  updateMessage(dt);
+  updateHud(time / 1000);
+  drawMentalImage(dt);
+
+  requestAnimationFrame(loop);
+}
+
+function init() {
+  addWorld();
+  buildAnchorSegments();
+  resize();
+  updatePlayer(0);
+  window.addEventListener('pointerdown', handlePointerDown);
+  window.addEventListener('mousedown', handleMouseDown);
+  window.addEventListener('auxclick', handleAuxClick);
+  window.addEventListener('mousemove', handleMouseMove);
+  window.addEventListener('wheel', handleWheel, { passive: false });
+  window.addEventListener('keydown', handleKeyDown, { passive: false });
+  window.addEventListener('keyup', handleKeyUp);
+  window.addEventListener('resize', resize);
+  // Dev hook: read-only state access for debugging/automation. Not part of the game.
+  window.sliceborne = { player, game, pickups, beacons, solids };
+  requestAnimationFrame(loop);
+}
+
+init();

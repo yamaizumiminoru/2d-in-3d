@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "sliceborne",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "4174", "--directory", "prototype"],
+      "port": 4174
+    }
+  ]
+}

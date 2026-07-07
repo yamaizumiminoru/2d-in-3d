@@ -1,0 +1,4 @@
+three.module.js is Three.js r160 (https://threejs.org), unmodified.
+Copyright 2010-2023 Three.js Authors. MIT License.
+https://github.com/mrdoob/three.js/blob/dev/LICENSE
+Vendored locally on 2026-07-06 so the prototype runs without network access.
