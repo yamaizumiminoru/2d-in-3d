@@ -32,7 +32,8 @@ python -m http.server 4173 --directory prototype
 4. `↑/↓` tilts the line; wheel too; middle-click or `↑`+`↓` resets with message "Scan tilt reset."
 5. `Shift`: strip visibly widens, movement/turn slow down.
 6. `Space` jumps (ping louder).
-7. `3` toggles DEV 3D both ways (mode readout `DEV 3D`).
+7. `3` toggles DEV 3D both ways (mode readout `DEV 3D`). **Regression check:** collect an anchor *while in* DEV 3D — the game must unfreeze after the 0.28 s reveal (a draw-path early return once left the reveal timer stuck forever).
+7b. `0`/`1`/`2` switch ping modes with a confirming message; in modes 1–2, `F` and right-click fire the focused ping (0.35 s cooldown), and right-click must not open a context menu.
 8. Collect all five anchors in order (positions/types table in [05-gameplay](05-gameplay.md); use DEV 3D to navigate quickly — that's what it's for). Verify per anchor: brief 3D reveal + input freeze + chime + next hint appears. Anchor 2 and 4 must *refuse* wrong-side entry with the "has a face" hint.
 9. Portal turns bright green after #5; walking in wins: chime, reveal, "The flat traveler crosses the third axis.", readout `VOLUME HELD`.
 10. Resize the window mid-play — no crash (afterimage clearing is expected).

@@ -18,6 +18,8 @@ Controls, physics, anchors, portal, HUD — with the exact numbers from `prototy
 | `Enter` | Start | |
 | `Shift` | Focus mode | turn ×0.38, move ×0.46, live strip ~2.7× wider |
 | `3` | Toggle DEV 3D | debug only; works even during reveal |
+| `0` / `1` / `2` | Ping mode (decision ② A/B test) | 0 = periodic (default), 1 = on-demand, 2 = hybrid; message confirms |
+| `F` / right-click | Focused ping | modes 1–2 only; full 3-ray fan, full range, `FOCUSED_PING_COOLDOWN` 0.35 s |
 
 During a reveal (`inputLocked()`): all inputs ignored/cleared except the `3` toggle; held movement keys resume after.
 

@@ -26,6 +26,10 @@ const ECHO_GAIN = 0.16;
 // Tilt-derived stereo (decision ③): the scan line's two ends are the ears.
 // pan = -EAR_SEPARATION * |sin(scanRoll)| * sin(relativeYaw); mono when vertical.
 const EAR_SEPARATION = 0.6;
+// Ping modes (decision 2 A/B test — keys 0/1/2): 0 = periodic, 1 = on-demand, 2 = hybrid
+const FOCUSED_PING_COOLDOWN = 0.35;
+const HEARTBEAT_PING_SCALE = 0.22;
+const HEARTBEAT_ECHO_RANGE = 6;
 const BOUNDS = Object.freeze({ minRight: -18.5, maxRight: 18.5, minForward: -18.5, maxForward: 18.5 });
 
 const COLORS = {
@@ -104,6 +108,7 @@ const game = {
   won: false,
   collected: 0,
   compassFound: false,
+  pingMode: 0,
   time: 0,
   pulse: 0,
   mouseScanDelta: 0,
@@ -127,6 +132,8 @@ let portalBeam = null;
 let audioCtx = null;
 let masterGain = null;
 let nextSelfPingAt = 0;
+let lastPingAt = -10;
+let lastFocusedPingAt = -10;
 
 function basisPosition(right = 0, up = 0, forward = 0) {
   return WORLD.fromBasisComponents(right, up, forward);
@@ -847,6 +854,7 @@ function startAudio() {
   limiter.release.value = 0.25;
   masterGain.connect(limiter);
   limiter.connect(audioCtx.destination);
+  lastPingAt = audioCtx.currentTime;
 
   for (const beacon of beacons) {
     const osc = audioCtx.createOscillator();
@@ -879,13 +887,21 @@ function updateAudio() {
   if (!audioCtx) return;
 
   const now = audioCtx.currentTime;
-  if (now >= nextSelfPingAt) {
-    playSelfPing(0.42);
+  if (game.pingMode !== 1 && now >= nextSelfPingAt) {
+    if (game.pingMode === 0) {
+      playSelfPing(0.42);
+      emitEchoes(0.42);
+    } else {
+      // hybrid heartbeat: presence, not information — center ray, short range, quiet
+      playSelfPing(HEARTBEAT_PING_SCALE);
+      emitEchoes(0.3, HEARTBEAT_ECHO_RANGE, true);
+    }
+    lastPingAt = now;
     nextSelfPingAt = now + ECHO_PERIOD;
   }
 
-  const phase = (now % ECHO_PERIOD) / ECHO_PERIOD;
-  const echoPulse = Math.exp(-phase * 9);
+  const sincePing = Math.max(0, now - lastPingAt);
+  const echoPulse = Math.exp(-9 * Math.min(sincePing / ECHO_PERIOD, 4));
   const tiltStereo = Math.abs(Math.sin(player.scanRoll));
 
   for (const beacon of beacons) {
@@ -929,8 +945,19 @@ function playSelfPing(scale = 1) {
   gain.connect(masterGain);
   osc.start(now);
   osc.stop(now + 0.09);
+}
 
-  emitEchoes(clamp(scale, 0.3, 1));
+function fireFocusedPing() {
+  if (!audioCtx || !game.started || inputLocked()) return;
+  if (game.pingMode === 0) return;
+
+  const now = audioCtx.currentTime;
+  if (now - lastFocusedPingAt < FOCUSED_PING_COOLDOWN) return;
+  lastFocusedPingAt = now;
+  lastPingAt = now;
+  playSelfPing(1);
+  emitEchoes(1);
+  game.pulse = Math.max(game.pulse, 0.3);
 }
 
 function rayAabbDistance(originRight, originForward, dirRight, dirForward, box) {
@@ -971,17 +998,18 @@ function castEchoRay(originRight, originForward, dirRight, dirForward) {
   return nearest;
 }
 
-function emitEchoes(scale = 1) {
+function emitEchoes(scale = 1, maxRange = MAX_ECHO_RANGE, centerOnly = false) {
   if (!audioCtx || !masterGain || !game.started) return;
 
   const planar = playerBasis();
   const tiltStereo = Math.abs(Math.sin(player.scanRoll));
   for (const offset of ECHO_RAY_OFFSETS) {
+    if (centerOnly && offset !== 0) continue;
     const rayYaw = player.yaw + offset;
     const dirRight = -Math.sin(rayYaw);
     const dirForward = Math.cos(rayYaw);
     const distance = castEchoRay(planar.right, planar.forward, dirRight, dirForward);
-    if (!Number.isFinite(distance) || distance > MAX_ECHO_RANGE) continue;
+    if (!Number.isFinite(distance) || distance > maxRange) continue;
 
     const delay = (distance * 2) / SOUND_SPEED;
     // positive ray offset = scan-left ray; left = negative pan (decision ③)
@@ -1180,8 +1208,6 @@ function drawMentalImage(dt) {
     drawFull3D(width, height, 0.18 + revealAlpha * 0.62);
     mentalCtx.fillStyle = `rgba(125, 255, 154, ${revealAlpha * 0.08})`;
     mentalCtx.fillRect(0, 0, width, height);
-
-    game.revealTimer = Math.max(0, game.revealTimer - dt);
   }
 
   renderer.render(scene, camera);
@@ -1257,6 +1283,8 @@ function jump() {
   player.verticalVelocity = JUMP_SPEED;
   game.pulse = 1;
   playSelfPing(1.25);
+  emitEchoes(1);
+  if (audioCtx) lastPingAt = audioCtx.currentTime;
 }
 
 function resetTilt() {
@@ -1279,6 +1307,18 @@ function handleKeyDown(event) {
     event.preventDefault();
     game.devView = !game.devView;
     showMessage(game.devView ? 'Developer 3D view enabled.' : 'Developer 3D view disabled.', 1.8);
+    return;
+  }
+
+  if (event.code === 'Digit0' || event.code === 'Digit1' || event.code === 'Digit2') {
+    event.preventDefault();
+    game.pingMode = Number(event.code.slice(-1));
+    const labels = [
+      'periodic — auto sonar every beat',
+      'on-demand — F / right-click to listen',
+      'hybrid — quiet heartbeat + focused ping (F / right-click)',
+    ];
+    showMessage(`Ping mode ${game.pingMode}: ${labels[game.pingMode]}`, 3);
     return;
   }
 
@@ -1312,6 +1352,7 @@ function handleKeyDown(event) {
       jump();
     }
   }
+  if (event.code === 'KeyF' && !event.repeat) fireFocusedPing();
 }
 
 function handleKeyUp(event) {
@@ -1333,6 +1374,11 @@ function handlePointerDown(event) {
     return;
   }
   if (resetTiltFromMiddleButton(event)) return;
+  if (event.button === 2) {
+    event.preventDefault();
+    fireFocusedPing();
+    return;
+  }
   if (event.button !== 0) return;
   if (!game.started) {
     begin();
@@ -1380,6 +1426,9 @@ function loop(time) {
   updateMessage(dt);
   updateHud(time / 1000);
   drawMentalImage(dt);
+  // reveal timer lives here, not in the draw path — DEV 3D early-returns there
+  // and used to freeze the game forever after an anchor collect (fixed 2026-07-07)
+  if (game.revealTimer > 0) game.revealTimer = Math.max(0, game.revealTimer - dt);
 
   requestAnimationFrame(loop);
 }
@@ -1390,6 +1439,7 @@ function init() {
   resize();
   updatePlayer(0);
   window.addEventListener('pointerdown', handlePointerDown);
+  window.addEventListener('contextmenu', (event) => event.preventDefault());
   window.addEventListener('mousedown', handleMouseDown);
   window.addEventListener('auxclick', handleAuxClick);
   window.addEventListener('mousemove', handleMouseMove);

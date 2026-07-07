@@ -100,7 +100,7 @@ Keep the current continuous beacon tones for anchors/portal (they are *magical* 
 
 ### C. Decision memo: ping mode (open question ②)
 
-The user will decide this later with an agent, after playing. Present this memo, let them play each variant (both are cheap to prototype behind a `const PING_MODE`), and record the decision here.
+The user will decide this after playing. **All three modes are implemented (2026-07-07)** behind `game.pingMode`, switchable live with keys `0`/`1`/`2`; focused ping on `F` or right-click (`FOCUSED_PING_COOLDOWN` 0.35 s). Hybrid heartbeat = `HEARTBEAT_PING_SCALE` 0.22, center ray only, `HEARTBEAT_ECHO_RANGE` 6 u. The shared echo-pulse "breathing" now follows the *actual* last ping (`lastPingAt`) instead of a global clock, so it works in all modes. Jump still fires a full ping+echo fan in every mode (jumping shouts). Let the user play each and record the decision here.
 
 **Option 1 — Periodic ping (current: every `ECHO_PERIOD` 0.94 s)**
 
