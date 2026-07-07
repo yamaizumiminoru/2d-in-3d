@@ -47,16 +47,12 @@ const COLORS = {
   blockGreen: 0x70f2a4,
   blockViolet: 0xb77cff,
   dark: 0x020304,
-  // rendered "emptiness" (sky/fog/floor glow) sits slightly above the decay
-  // target `dark`, so scanned-empty leaves a fading trace vs unscanned black
-  air: 0x07090c,
 };
 
 const dom = {
   mentalCanvas: document.getElementById('mental-canvas'),
   signalBar: document.getElementById('signal-bar'),
   anchorSegments: document.getElementById('anchor-segments'),
-  driftBar: document.getElementById('drift-bar'),
   dirRibbon: document.getElementById('dir-ribbon'),
   ribDrift: document.getElementById('rib-drift'),
   modeReadout: document.getElementById('mode-readout'),
@@ -83,7 +79,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(48, SENSOR_RENDER_WIDTH / window.innerHeight, 0.03, 90);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-renderer.setClearColor(COLORS.air, 1);
+renderer.setClearColor(COLORS.dark, 1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.domElement.id = 'hidden-renderer';
@@ -177,8 +173,8 @@ function addEdgeGlow(mesh, color = COLORS.wallEdge, opacity = 0.72) {
 }
 
 function addLights() {
-  scene.background = new THREE.Color(COLORS.air);
-  scene.fog = new THREE.FogExp2(COLORS.air, 0.032);
+  scene.background = new THREE.Color(COLORS.dark);
+  scene.fog = new THREE.FogExp2(COLORS.dark, 0.032);
   scene.add(new THREE.HemisphereLight(0xc8fbff, 0x071214, 1.55));
 
   const key = new THREE.DirectionalLight(0xffffff, 1.4);
@@ -190,16 +186,21 @@ function addLights() {
   scene.add(rim);
 }
 
-function addFloor() {
+// Per-stage atmosphere (user decision 2026-07-08): levels may override the
+// floor/grid palette; omitted fields fall back to the canonical bright floor.
+function addFloor(palette = {}) {
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(42, 42, 1, 1),
-    material(COLORS.floor, { emissive: 0x8fa7ab, emissiveIntensity: 0.5 }),
+    material(palette.floor ?? COLORS.floor, {
+      emissive: palette.floorEmissive ?? 0x8fa7ab,
+      emissiveIntensity: palette.floorGlow ?? 0.5,
+    }),
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = -0.02;
   scene.add(floor);
 
-  const grid = new THREE.GridHelper(42, 42, 0x72f5ff, 0x286b74);
+  const grid = new THREE.GridHelper(42, 42, palette.grid1 ?? 0x72f5ff, palette.grid2 ?? 0x286b74);
   grid.position.y = 0.015;
   scene.add(grid);
 }
@@ -445,7 +446,7 @@ function addPortal({ right, forward, up }) {
 
 function addWorld(level) {
   addLights();
-  addFloor();
+  addFloor(level.palette ?? {});
 
   if (level.bounds) BOUNDS = { ...level.bounds };
   for (const box of level.walls ?? []) addSolidBox(box);
@@ -1061,9 +1062,7 @@ function updateMessage(dt) {
 
 function updateHud(t) {
   const strongest = beacons.reduce((max, beacon) => Math.max(max, signalForBeacon(beacon)), 0);
-  const drift = Math.hypot(player.angularVelocity, player.rollVelocity * 0.75);
   dom.signalBar.style.width = `${Math.round(strongest * 100)}%`;
-  dom.driftBar.style.width = `${Math.round(clamp(Math.abs(drift) * 30, 0, 100))}%`;
 
   for (const pickup of pickups) {
     pickup.segment.style.background = pickup.collected

@@ -90,7 +90,7 @@
 
     .readout {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       border-top: 1px solid rgba(136, 238, 255, 0.16);
     }
 
@@ -142,10 +142,6 @@
       left: 0;
       width: 0%;
       background: rgba(68, 231, 255, 0.66);
-    }
-
-    #drift-bar {
-      background: rgba(255, 201, 90, 0.6);
     }
 
     .anchor-segments {
@@ -339,10 +335,6 @@
         <div class="cell">
           <span class="label">ANCHORS</span>
           <div class="anchor-segments" id="anchor-segments"></div>
-        </div>
-        <div class="cell">
-          <span class="label">DRIFT</span>
-          <div class="bar"><div class="bar-fill" id="drift-bar"></div></div>
         </div>
         <div class="cell">
           <span class="label">DIR</span>

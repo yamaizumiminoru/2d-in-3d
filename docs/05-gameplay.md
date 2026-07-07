@@ -79,7 +79,7 @@ All measurement cells are **1D marks** (memo ⑤, adopted & implemented 2026-07-
 | --- | --- | --- |
 | SIGNAL | strongest `signalForBeacon` across beacons | cyan fill-bar (width = %) |
 | ANCHORS | per-pickup state | segments (`.anchor-segment`); fill in the anchor's color on collect, bright border = active |
-| DRIFT | `hypot(angularVelocity, rollVelocity·0.75) · 30`, capped | amber fill-bar |
+| ~~DRIFT~~ | — | **removed 2026-07-08** (user: 必要ない). The drift *math* survives inside `drawMentalImage` (it drives afterimage decay); only the HUD cell is gone — the readout is now 3 cells |
 | DIR | heading ribbon (`RIBBON_PX_PER_RADIAN` 26): cardinal letters slide opposite to scan turn, same convention as the afterimage; N = amber. **Uncalibrated until the frame shard is found** (memo ④d) — letters hidden, a faint mark wanders | 1D azimuth tape |
 | mode readout | `ANCHOR n` → `GOAL` → `VOLUME HELD`; or `DEV 3D` | words (language stays words) |
 
@@ -116,7 +116,7 @@ Decision recorded: ☑ **(d) audio-found frame shard** — 2026-07-07, user conf
 | --- | --- | --- |
 | ANCHORS | `2/5` | `■■□□□` — segments fill on collect, each *in its anchor's color* (the HUD gradually gains the stage's palette) |
 | SIGNAL | `43%` | a thin horizontal fill-bar. Side benefit: a soft bar is harder to min-max than a percentage — reduces the cell's radar-ness ahead of its possible retirement |
-| DRIFT | `12` | a short bar whose length = drift (scan-motion speed); could blur/feather at high drift |
+| DRIFT | `12` | *(cell removed entirely 2026-07-08 — user judged it unnecessary)* |
 | DIR | 2D rotating dial | **1D heading ribbon** (aircraft-style azimuth tape): N/E/S/W glyphs sliding along a horizontal strip. Strictly better than the dial: the mental canvas is already a 1D ribbon of angles, so the compass becomes a miniature of the panorama itself — same axis, same direction convention (scrolls opposite to scan turn, like the afterimage). With ④(d), the ribbon can be drawn as a thin strip of *frame wood* |
 | mode readout / messages | text | keep — language stays words |
 

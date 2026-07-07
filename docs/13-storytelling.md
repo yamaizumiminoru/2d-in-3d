@@ -1,5 +1,7 @@
 # 13 — Storytelling (words last)
 
+> **Status: ADOPTED by the user 2026-07-08** (「ストーリーテリングはそんな感じでいきましょう」). The emblem grammar, 影絵 vignettes, reveal-glimpse, and words policy below are decisions, not proposals.
+
 User constraints (2026-07-07): no long verbal exposition; the first-person protagonist never speaks; between stages, simple stills or realtime-rendered shorts are welcome. This document is the storytelling system.
 
 ## Principles

@@ -49,7 +49,7 @@ How to build spaces that are *readable* through scan, afterimage, and echo. The 
 
 ## Authoring workflow
 
-Levels are **plain-data ES modules**: `prototype/levels/levelNN.js` (shipped 2026-07-07 — level01 is the reference). To author a level: copy level01, edit the data (playerStart, bounds, walls, columns, markers, pickups, frameShard, portal — colors as raw hex), open `?level=N`, iterate with DEV 3D (`3`) — but always final-check in normal perception, because *that* is the game. A layout that is elegant in DEV 3D and illegible in the scan is a failed layout. Mechanics beyond current engine support (grain, slits, banked ground, enemies) still need engine work first — see [06-roadmap](06-roadmap.md) and [12-tilt-stages](12-tilt-stages.md) per stage.
+Levels are **plain-data ES modules**: `prototype/levels/levelNN.js` (shipped 2026-07-07 — level01 is the reference). To author a level: copy level01, edit the data (playerStart, bounds, walls, columns, markers, pickups, frameShard, portal, optional `palette` for floor/grid atmosphere — colors as raw hex; per-stage palette suggestions live in [14-stage-ideas](14-stage-ideas.md)), open `?level=N`, iterate with DEV 3D (`3`) — but always final-check in normal perception, because *that* is the game. A layout that is elegant in DEV 3D and illegible in the scan is a failed layout. Mechanics beyond current engine support (grain, slits, banked ground, enemies) still need engine work first — see [06-roadmap](06-roadmap.md) and [12-tilt-stages](12-tilt-stages.md) per stage.
 
 Playtest questions for every new level (in normal perception):
 1. Within 60 s, can you name three landmarks and point (scan) to them from memory?
