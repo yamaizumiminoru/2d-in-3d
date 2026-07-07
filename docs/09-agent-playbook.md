@@ -58,7 +58,7 @@ Post-Phase-1 additions: eyes-closed echo test ([04-audio](04-audio.md) §B1 acce
 
 ## Git
 
-The folder is a git repository but currently has **no commits** (unborn HEAD). If the user asks to start version control: `git add -A` and commit everything including `docs/` as the initial commit. Do not commit or push unasked.
+Remote: `https://github.com/yamaizumiminoru/2d-in-3d` (origin), branch `main`, initial commit 2026-07-07. `.claude/settings.local.json` is gitignored. Commit `docs/` changes together with the code they describe. Do not commit or push unasked; when asked, end commit messages with the agent co-author line.
 
 ## Working with the user
 
