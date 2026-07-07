@@ -131,8 +131,10 @@ Confirmed with the user 2026-07-07: the game is **stage-clear (面クリア式)*
 
 ### ST13 — 再会 / Reunion (finale)
 
-- Short and scripted: one final door held flat by a single anchor; on clear, the reveal *doesn't end* — the one time full 3D lingers, fictionalized (she is the fifth anchor / the reason space holds). Ending copy and the return-to-painting question: **decide with the user; do not improvise the ending.**
-- **The final verb is alignment (user decision 2026-07-07):** the reunion touch is coplanar, edge to edge — zero width meeting zero width, the kiss metaphor. Never a side touch (that is the attack verb). Full spec incl. her gentle-refusal teaching and the transversal/parallel/coplanar trichotomy: [07-combat-body-plane](07-combat-body-plane.md) §5.
+- Short and scripted: one final door held flat by a single anchor; on clear, the reveal *doesn't end* — the one time full 3D lingers, fictionalized (she is the fifth anchor / the reason space holds).
+- **The final verb is alignment (user decision 2026-07-07):** the reunion touch is coplanar, edge to edge — zero width meeting zero width, the kiss metaphor. Never a side touch (that is the attack verb). Her refusal of a side approach: a light **90° flip (ひらり)** — the parry vocabulary returned as gentleness. Full spec: [07-combat-body-plane](07-combat-body-plane.md) §5.
+- **The ending (user decision 2026-07-07): they return to the painting — and the painting has gained something.** A picture that was not there at the start: a depiction of something *three-dimensional* — depth rendered in perspective, volume as a flat image. 3D itself cannot enter the painting; a *picture of it* can. The journey comes home as representation — exactly as this game is 3D beings' flat picture of being 2D. Bookends ST0: same room of the painting, one new frame on its wall. Exact copy/visual: refine with the user at build time; the structure is decided.
+- Characters remain **nameless** (user decision 2026-07-07): "the man" / "the woman" — fits the spare, liturgical voice.
 - **Acceptance:** total stage length ≤ 5 min; no new mechanics; credits reachable without dev tools.
 
 ## Build order (≠ story order)

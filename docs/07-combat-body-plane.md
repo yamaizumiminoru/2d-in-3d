@@ -75,7 +75,7 @@ The geometry hands the whole game its relationship model for free. Two planes in
 | **Parallel** | they never meet | loneliness — passing without touching (ST12 can stage this: walking parallel to her traces) |
 | **Coplanar** | they share one plane | union — the reunion |
 
-ST13 mechanical sketch: her plane is ahead, read by afterimage and leitmotif. The player must rotate body yaw to **align, not face** — facing her broadside is attack posture. Then approach *along* the shared plane; the touch event = `|Δplane yaw| < ε` AND low closing speed AND edge gap < ε. Guard against tragedy: she cannot be damaged; a transversal approach makes her step-roll gently back (a refusal that teaches — she taught him tilt through the imprint in ST11; she teaches him this too). After the touch, the two coplanar beings can pass the flat door home *together* — a doorway only a single plane can enter.
+ST13 mechanical sketch: her plane is ahead, read by afterimage and leitmotif. The player must rotate body yaw to **align, not face** — facing her broadside is attack posture. Then approach *along* the shared plane; the touch event = `|Δplane yaw| < ε` AND low closing speed AND edge gap < ε. Guard against tragedy: she cannot be damaged. **The refusal (user decision 2026-07-07): approached from the side, she flips her plane 90° — ひらり, light as a page turning** — and the approach passes through nothing. It is exactly the player's parry vocabulary, returned as gentleness: the same motion that survives a charge declines a wrongly-offered touch. She taught him tilt through the imprint (ST11); she teaches him this too. After the true touch, the two coplanar beings can pass the flat door home *together* — a doorway only a single plane can enter.
 
 ## 6. Open questions (ask the user before committing)
 
@@ -83,6 +83,6 @@ ST13 mechanical sketch: her plane is ahead, read by afterimage and leitmotif. Th
 | --- | --- |
 | Body rotation: snap 45° vs smooth? | Build both behind a `const` |
 | Does the player attack actively (button) or is contact-while-oriented the attack? | Contact-based first — fewer inputs, more chess-like |
-| Can enemies hear the self-ping (stealth pressure on perception itself)? | Yes in Turner spec above — but confirm; it deepens the fiction *and* the difficulty |
+| ~~Can enemies hear the self-ping?~~ | **Resolved 2026-07-07 with ② hybrid:** enemies hear the *focused* ping only; the heartbeat is inaudible to them. Stealth = choosing not to ask questions |
 | Player death: restart level vs anchor checkpoint? | Restart level while levels are small |
 | Does scan tilt (roll) interact with combat (reading a toppled enemy)? | Yes — full idea bank now in [11-tilt-mechanics](11-tilt-mechanics.md) (stance reading, cut-grain, topple/finisher); build order there |

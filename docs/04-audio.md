@@ -121,7 +121,9 @@ The user will decide this after playing. **All three modes are implemented (2026
 - *Against:* two systems to tune; risk that the heartbeat already gives enough and the focused ping feels redundant — tune the heartbeat to be *presence, not information* (short range, e.g. clamp its `MAX_ECHO_RANGE` to ~6).
 - *Fiction check:* passes — a body hums involuntarily; attention sharpens the beam. Consistent with focus mode (Shift) precedent: could even *be* Shift, but a separate key is cleaner than overloading focus.
 
-Decision recorded: ☐ periodic ☐ on-demand ☐ hybrid — date/notes: ____
+Decision recorded: ☑ **hybrid** — 2026-07-07, user confirmed after playing all three. `game.pingMode` defaults to 2; keys `0`/`1` remain as dev comparison tools (retire before release). Consequences now locked: ST8 teaches the focused ping (TS-C lintels confirmed), ST10 enemies hear the focused ping only (stealth beat confirmed).
+
+Observation from the user's mode-1 test, recorded for the archive: the "continuous tone" heard in on-demand mode is **not a bug** — it is the active anchor's (and unfound frame shard's) beacon hum, by design (beacons = destinations hum; echoes = terrain answers). Mode 1 merely exposes it nakedly. If mode 1 is ever revisited: an optional purist variant would make beacons, too, answer only to pings.
 
 ### D. Decision memo: tilt-derived stereo (question ③, raised by the user 2026-07-07)
 

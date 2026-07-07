@@ -45,6 +45,26 @@ Sliceborne's specific combination — *a 2D-native being with a 1D live slice, t
 - **Anchors**: points where flat space still "holds" inside the 3D room. Stabilizing all five un-flattens the door (portal). The current win message: *"The flat traveler crosses the third axis."*
 - **The reveal**: at the instant an anchor stabilizes, the man borrows the time axis to glimpse volume — everything freezes, he sees, then time resumes and sight collapses back to the line.
 
+## Story decisions (user, 2026-07-07)
+
+- **The ending:** they return to the painting — and the painting has gained a picture that was not there before: something three-dimensional, rendered flat (perspective — depth as image). 3D cannot enter their world; a *picture* of it can. The game closes on the same symmetry it opened with: we, 3D beings, played a flat picture of being 2D; they, 2D beings, hang a flat picture of having been 3D.
+- **Names:** the man and the woman stay **nameless** (for now, and probably forever — it fits the voice).
+- **Her refusal (ST13):** approached from the side, she flips her plane 90° — ひらり — the parry made gentle. See [07-combat-body-plane](07-combat-body-plane.md) §5.
+
+## Title (decision memo ⑥ — OPEN)
+
+"Sliceborne" was an arbitrary Codex coinage; the user is not attached and leans descriptive ("2D's adventure in 3D"-like). Recommendation: **poetic main title + descriptive subtitle** (the subtitle does the store-page work). Candidates, in rough order of recommendation:
+
+| Candidate | Why | Risk |
+| --- | --- | --- |
+| **Out of Frame** — *a 2D adventure in 3D* | the whole story in three words: born in a frame, leaves it, returns to it; pairs with the frame-shard compass and the ending's new picture | somewhat common phrase |
+| **Coplanar** — *a 2D adventure in 3D* | the ending as the title (love = sharing a plane); uniquely ours | opaque before playing |
+| **The Flat Traveler** | already in the win message; warm, storybook | mild |
+| **One-Line Eye** | the HUD's boot text; names the perception hook | cryptic |
+| Keep **Sliceborne** | ownable, established in code/docs | no story resonance; Codex-arbitrary |
+
+Decision recorded: ☐ — date/notes: ____ (renaming touches `index.html` title/H1, HUD brand, README, repo description; grep `SLICEBORNE|Sliceborne`).
+
 ## Tone and aesthetic
 
 - Darkness punctuated by high-contrast emissive color (afterimages must survive fading; see the `COLORS` palette).

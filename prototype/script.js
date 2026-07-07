@@ -108,7 +108,7 @@ const game = {
   won: false,
   collected: 0,
   compassFound: false,
-  pingMode: 0,
+  pingMode: 2,
   time: 0,
   pulse: 0,
   mouseScanDelta: 0,

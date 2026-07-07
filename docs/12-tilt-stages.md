@@ -125,7 +125,7 @@ Difficulty rationale: ruler = assisted measurement; shelves = unassisted separat
 - Dark chamber, three doorways in the far wall, visually identical (all full-height gaps ≥ 1.5 u for planar collision, all near-zero glow). Two are "false": decorative low lintels (echoSolids at up 1.6–2.0) hang just inside — a tilted focused ping returns an early dull *bon* from overhead. The true door has clear high air (no overhead return).
 - False doors are not punishing — they lead into short dead-end loops that cost ~20 s and return. The lesson is the listening, not the penalty.
 - Second beat: the chamber's side alcoves differ only in reverb size (B3) — one holds the anchor (boomy), one is a dry dent. Ear-only discrimination.
-- **If ② resolves to periodic-only:** drop the lintel mechanic (no deliberate ping to tilt) and keep only the reverb discrimination; move the lintel idea to a post-② backlog.
+- **② resolved (hybrid, 2026-07-07):** the focused ping exists, so the lintel mechanic is confirmed as designed. ST8 is the focused ping's tutorial stage: chamber 1 solvable on heartbeat alone, chambers 2–3 require deliberate pings.
 
 ### Chamber 3 「二つの声・易」 — two voices, easy version (③ stereo, partial)
 
@@ -159,7 +159,7 @@ Three connected arenas (~14×14 each). Combat rules per [07-combat-body-plane](0
 
 - **Anchor** (amber, gated) behind **T2**'s 6 u patrol line. Parry/slam topples T2: it becomes a floor-flat plane, harmless, `topple 4 s` then rises.
 - Tilt lesson: toppled, T2 is a hairline at floor level — track it tilted (or by its dull flat tone, [04-audio](04-audio.md) §B4) and **walk through it** to finish (vertical player plane cuts the horizontal body — the geometry *is* the finisher).
-- If ② hybrid: T2 hears the focused ping ≤ 9 u; heartbeat is inaudible — the stealth beat.
+- ② resolved hybrid: T2 hears the focused ping ≤ 9 u; the heartbeat is inaudible to it — the stealth beat is confirmed. Seeing costs; silence is walking blind.
 
 ### C3 卒業 (graduation) — cut-grain + herding
 
