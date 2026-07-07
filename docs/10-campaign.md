@@ -8,7 +8,7 @@ Confirmed with the user 2026-07-07: the game is **stage-clear (面クリア式)*
 - **One new element per stage.** Everything else is review. If a stage teaches nothing new and isn't an exam or story beat, it shouldn't exist.
 - **Anchor counts vary (3–5).** Not every stage is 5; shorter is fine. Fatigue is the enemy.
 - **(Adopted ④(d), [05-gameplay](05-gameplay.md)):** each stage hides one optional **frame shard** — an audio-found compass (wooden hum). Before it: relative navigation; after: absolute bearings. Optional, never a gate; ST1–2 pre-granted; ST8's shard hunt is that stage's purest by-ear beat. Implemented in the prototype room as reference.
-- **Stage transition:** portal → reveal flash → fade to black → minimal title card (stage number + name) → next stage. Dev access: `?level=N` URL param (Phase 1 loader).
+- **Stage transition:** portal → reveal flash → fade to black → title card (stage number + name + the **two-line emblem**, [13-storytelling](13-storytelling.md)) → optional 影絵 vignette (first clear only) → next stage. Dev access: `?level=N` URL param (Phase 1 loader).
 - Target first-release playtime: **60–90 minutes**. Current estimate below sums to ~95 — at the ceiling; the cut list below is live, not decorative.
 
 ## Stage list

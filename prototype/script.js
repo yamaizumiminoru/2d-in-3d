@@ -39,7 +39,7 @@ const COLORS = {
   green: 0x7dff9a,
   magenta: 0xff5fd7,
   red: 0xff4d62,
-  floor: 0x0a181a,
+  floor: 0x9db4b8,
   wall: 0x35d7ff,
   wallEdge: 0xd5fbff,
   blockAmber: 0xffb84a,
@@ -193,7 +193,7 @@ function addLights() {
 function addFloor() {
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(42, 42, 1, 1),
-    material(COLORS.floor, { emissive: 0x0b3a42, emissiveIntensity: 0.55 }),
+    material(COLORS.floor, { emissive: 0x8fa7ab, emissiveIntensity: 0.5 }),
   );
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = -0.02;

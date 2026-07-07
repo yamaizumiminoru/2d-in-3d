@@ -25,6 +25,7 @@ Then, per task:
 | 10 | [Campaign plan](10-campaign.md) | The stage-clear (面クリア) campaign: 14 stage specs, build order, pacing guardrails |
 | 11 | [Tilt mechanics](11-tilt-mechanics.md) | Idea bank: grain/alignment resonance, tilt in combat (stance reading, cut-grain, topple), build order |
 | 12 | [Tilt stage designs](12-tilt-stages.md) | Buildable stage designs for the tilt ladder (see→follow→hold→measure→listen→fight→dance), easy → hard, with geometry |
+| 13 | [Storytelling](13-storytelling.md) | Wordless narrative system: two-line emblem grammar, 影絵 vignettes, reveal-glimpses, words policy |
 
 ## Status snapshot (2026-07-07)
 
