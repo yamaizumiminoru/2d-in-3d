@@ -69,7 +69,7 @@ Side contact is the *attack* verb — passing through a plane cuts it. So the fi
 
 The geometry hands the whole game its relationship model for free. Two planes in space have exactly three configurations:
 
-| Configuration | Geometry | Meaning in Sliceborne |
+| Configuration | Geometry | Meaning in Coplanar |
 | --- | --- | --- |
 | **Transversal** | they intersect in a line | the cut — combat, violence |
 | **Parallel** | they never meet | loneliness — passing without touching (ST12 can stage this: walking parallel to her traces) |

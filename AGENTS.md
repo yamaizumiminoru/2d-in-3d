@@ -1,6 +1,6 @@
-# Sliceborne — Agent Guide
+# Coplanar — Agent Guide
 
-Sliceborne is a browser game about a two-dimensional person thrown into three-dimensional space. The player never gets ordinary 3D vision: they read the world through a single moving scan line, decaying afterimages, and echolocation-like self-generated sound. The joy of the game is learning to *read* 3D space with an intentionally incomplete 2D sensorium.
+Coplanar is a browser game about a two-dimensional person thrown into three-dimensional space. The player never gets ordinary 3D vision: they read the world through a single moving scan line, decaying afterimages, and echolocation-like self-generated sound. The joy of the game is learning to *read* 3D space with an intentionally incomplete 2D sensorium.
 
 This file is the entry point for any coding agent working in this repository. The complete documentation set lives in [`docs/`](docs/README.md). Read this file fully before changing anything.
 

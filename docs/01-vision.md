@@ -16,15 +16,15 @@ The pleasure is *learning to read space*. Not fighting the interface — masteri
 
 Games have explored dimension-play before. Knowing the prior art keeps future work from accidentally converging into an existing genre:
 
-| Prior work | What it does | How Sliceborne differs |
+| Prior work | What it does | How Coplanar differs |
 | --- | --- | --- |
-| *Flatland* (novel, 1884) | 2D being visited by a 3D sphere; describes the concept | Sliceborne is the playable version of the *Flatlander in Spaceland* chapter — the part no game has made playable |
+| *Flatland* (novel, 1884) | 2D being visited by a 3D sphere; describes the concept | Coplanar is the playable version of the *Flatlander in Spaceland* chapter — the part no game has made playable |
 | *FEZ* | 3D world viewed as 2D projections; player rotates the projection | The world is presented in clean 2D at all times; perception is never scarce |
 | *Miegakure* (unreleased) | 3D being slicing through 4D space | Same trick one dimension up, and the slice is rendered as full comfortable 3D |
 | *Perspective*, *Monument Valley* | Projection/perspective puzzles | Perception itself is not the limited resource |
-| *Perception*, *Lurking*, *Devil's Tuning Fork*, *Blind* | Echolocation rendered as visual point clouds / outlines | Sound becomes sight — a radar. Sliceborne deliberately refuses the radar; sound stays sound |
+| *Perception*, *Lurking*, *Devil's Tuning Fork*, *Blind* | Echolocation rendered as visual point clouds / outlines | Sound becomes sight — a radar. Coplanar deliberately refuses the radar; sound stays sound |
 
-Sliceborne's specific combination — *a 2D-native being with a 1D live slice, temporal afterimage memory, and non-binaural echo hearing, navigating real 3D space* — has, to the best of our knowledge, no direct precedent. Treat that combination as the crown jewels. Every feature should deepen it; no feature should dilute it.
+Coplanar's specific combination — *a 2D-native being with a 1D live slice, temporal afterimage memory, and non-binaural echo hearing, navigating real 3D space* — has, to the best of our knowledge, no direct precedent. Treat that combination as the crown jewels. Every feature should deepen it; no feature should dilute it.
 
 ## Design pillars
 
@@ -51,19 +51,11 @@ Sliceborne's specific combination — *a 2D-native being with a 1D live slice, t
 - **Names:** the man and the woman stay **nameless** (for now, and probably forever — it fits the voice).
 - **Her refusal (ST13):** approached from the side, she flips her plane 90° — ひらり — the parry made gentle. See [07-combat-body-plane](07-combat-body-plane.md) §5.
 
-## Title (decision memo ⑥ — OPEN)
+## Title (decision memo ⑥ — RESOLVED)
 
-"Sliceborne" was an arbitrary Codex coinage; the user is not attached and leans descriptive ("2D's adventure in 3D"-like). Recommendation: **poetic main title + descriptive subtitle** (the subtitle does the store-page work). Candidates, in rough order of recommendation:
+☑ **«Coplanar — a 2D adventure in 3D»** — decided by the user 2026-07-07. The ending as the title: love = sharing a plane; the subtitle does the store-page work. ("Out of Frame" was the other finalist but already exists on Steam. The project's original working title, *Sliceborne*, was an arbitrary Codex coinage — it survives only in the git history and the historical handoff file.)
 
-| Candidate | Why | Risk |
-| --- | --- | --- |
-| **Out of Frame** — *a 2D adventure in 3D* | the whole story in three words: born in a frame, leaves it, returns to it; pairs with the frame-shard compass and the ending's new picture | somewhat common phrase |
-| **Coplanar** — *a 2D adventure in 3D* | the ending as the title (love = sharing a plane); uniquely ours | opaque before playing |
-| **The Flat Traveler** | already in the win message; warm, storybook | mild |
-| **One-Line Eye** | the HUD's boot text; names the perception hook | cryptic |
-| Keep **Sliceborne** | ownable, established in code/docs | no story resonance; Codex-arbitrary |
-
-Decision recorded: ☐ — date/notes: ____ (renaming touches `index.html` title/H1, HUD brand, README, repo description; grep `SLICEBORNE|Sliceborne`).
+Renamed same day across `index.html` (title / H1 / HUD brand / start-veil subtitle), `AGENTS.md`, all of `docs/`, and the dev hook (`window.coplanar`). `CLAUDE_FABLE5_HANDOFF.md` keeps the old name as history; the GitHub repo slug stays `2d-in-3d`.
 
 ## Tone and aesthetic
 

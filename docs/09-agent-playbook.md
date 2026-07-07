@@ -1,6 +1,6 @@
 # 09 — Agent Playbook
 
-Operational manual for any coding agent (Claude, Gemini/Antigravity, Codex, …) working on Sliceborne. Pair with [`AGENTS.md`](../AGENTS.md) (rules) — this file is the *how*.
+Operational manual for any coding agent (Claude, Gemini/Antigravity, Codex, …) working on Coplanar. Pair with [`AGENTS.md`](../AGENTS.md) (rules) — this file is the *how*.
 
 ## Environment
 
@@ -14,6 +14,7 @@ python -m http.server 4173 --directory prototype
 ```
 
 - Three.js is vendored (`prototype/third_party/three/`) — no internet needed. If the page is black, check the browser console for an import-map path error first.
+- Levels load from `prototype/levels/levelNN.js` via `?level=N` (default 1; bad ids fall back to 01 with a console warning).
 - Port 4173 may already be held by a long-lived server from an earlier session that serves this same folder live; reuse it, or use another port (e.g. 4174 — see `.claude/launch.json`, which Claude's preview tooling uses).
 
 ## Verification ladder (run bottom-up as far as your change warrants)
@@ -42,7 +43,7 @@ Post-Phase-1 additions: eyes-closed echo test ([04-audio](04-audio.md) §B1 acce
 
 ## Debugging tips (hard-won)
 
-- **Use the dev hook `window.sliceborne`** (`{player, game, pickups, beacons, solids}`) for state reading and automation — module scope is unreachable from the console without it. A scripted full playthrough (dispatch `KeyboardEvent`s on `window`, steer toward `pickups[game.activePickupIndex]`, jump-spam near the air anchor) won the game in ~35 s on 2026-07-07; that pattern is the strongest available regression test. Caveats from that run: waypoint around walls (pure head-on pressing doesn't slide), and remember anchors reset on reload.
+- **Use the dev hook `window.coplanar`** (`{player, game, pickups, beacons, solids}`) for state reading and automation — module scope is unreachable from the console without it. A scripted full playthrough (dispatch `KeyboardEvent`s on `window`, steer toward `pickups[game.activePickupIndex]`, jump-spam near the air anchor) won the game in ~35 s on 2026-07-07; that pattern is the strongest available regression test. Caveats from that run: waypoint around walls (pure head-on pressing doesn't slide), and remember anchors reset on reload.
 - **Pixel-reading the mental canvas is flaky** — mid-animation reads gave unreliable results in past sessions. Prefer: screenshots + visual judgment, DEV 3D for spatial questions, the dev hook for logic questions.
 - Reproduce perception bugs in DEV 3D first to separate "world is wrong" from "rendering of world is wrong".
 - Audio bugs: remember the 0.94 s ping period and per-beacon `isActive()` gating — "no sound" is often "beacon not active", not a graph problem. `audioCtx.state` must be `running` (requires the start gesture). Echo returns are scheduled up to ~1.4 s after a ping (`2·MAX_ECHO_RANGE/SOUND_SPEED`); WebAudio exceptions in scheduling surface in the console every ping, so a clean console over ~5 s means the echo path is healthy.

@@ -30,7 +30,8 @@ const EAR_SEPARATION = 0.6;
 const FOCUSED_PING_COOLDOWN = 0.35;
 const HEARTBEAT_PING_SCALE = 0.22;
 const HEARTBEAT_ECHO_RANGE = 6;
-const BOUNDS = Object.freeze({ minRight: -18.5, maxRight: 18.5, minForward: -18.5, maxForward: 18.5 });
+// Default playable bounds; overridden per level by addWorld(level.bounds)
+let BOUNDS = { minRight: -18.5, maxRight: 18.5, minForward: -18.5, maxForward: 18.5 };
 
 const COLORS = {
   cyan: 0x44e7ff,
@@ -396,9 +397,9 @@ function activateCurrentPickup(prefix = '') {
   if (active) showMessage(`${prefix}${active.hint}`, prefix ? 4.6 : 3.8);
 }
 
-function addPortal() {
+function addPortal({ right, forward, up }) {
   portal = new THREE.Group();
-  portal.position.copy(basisPosition(0, 1.7, 17.4));
+  portal.position.copy(basisPosition(right, up, forward));
 
   portalRing = new THREE.Mesh(
     new THREE.TorusGeometry(1.35, 0.08, 18, 96),
@@ -417,14 +418,14 @@ function addPortal() {
     material(COLORS.green, { emissive: COLORS.green, emissiveIntensity: 0.36, transparent: true, opacity: 0.34 }),
   );
   portalFloorRing.rotation.x = Math.PI / 2;
-  portalFloorRing.position.copy(basisPosition(0, 0.06, 17.4));
+  portalFloorRing.position.copy(basisPosition(right, 0.06, forward));
   scene.add(portalFloorRing);
 
   portalBeam = new THREE.Mesh(
     new THREE.CylinderGeometry(0.035, 0.035, 3.8, 10, 1),
     material(COLORS.green, { emissive: COLORS.green, emissiveIntensity: 0.28, transparent: true, opacity: 0.18 }),
   );
-  portalBeam.position.copy(basisPosition(0, 1.9, 17.4));
+  portalBeam.position.copy(basisPosition(right, up + 0.2, forward));
   scene.add(portalBeam);
 
   portal.add(portalRing, portalCore);
@@ -439,99 +440,30 @@ function addPortal() {
   });
 }
 
-function addWorld() {
+function addWorld(level) {
   addLights();
   addFloor();
 
-  addSolidBox({ right: 0, forward: -20.5, width: 42, depth: 0.8, height: 3.4, color: COLORS.wall, glow: 0.5 });
-  addSolidBox({ right: 0, forward: 20.5, width: 42, depth: 0.8, height: 3.4, color: COLORS.wall, glow: 0.5 });
-  addSolidBox({ right: -20.5, forward: 0, width: 0.8, depth: 42, height: 3.4, color: COLORS.wall, glow: 0.5 });
-  addSolidBox({ right: 20.5, forward: 0, width: 0.8, depth: 42, height: 3.4, color: COLORS.wall, glow: 0.5 });
+  if (level.bounds) BOUNDS = { ...level.bounds };
+  for (const box of level.walls ?? []) addSolidBox(box);
+  for (const column of level.columns ?? []) addColumn(column.right, column.forward, column.radius, column.height, column.color);
+  for (const marker of level.markers ?? []) addMarkerBox(marker);
+  for (const pickup of level.pickups ?? []) addPickup(pickup);
+  if (level.frameShard) addFrameShard(level.frameShard);
+  addPortal(level.portal ?? { right: 0, forward: 17.4, up: 1.7 });
 
-  addSolidBox({ right: -8.6, forward: -8.5, width: 8.4, depth: 0.75, height: 2.4, color: COLORS.blockAmber, glow: 0.46, edge: 0xfff1b8 });
-  addSolidBox({ right: 7.7, forward: -8.5, width: 7.8, depth: 0.75, height: 2.4, color: COLORS.blockAmber, glow: 0.46, edge: 0xfff1b8 });
-  addSolidBox({ right: 0.2, forward: 0.6, width: 3.2, depth: 3.2, height: 5.2, color: COLORS.blockViolet, glow: 0.5, edge: 0xf0d1ff });
-  addSolidBox({ right: -10.2, forward: 6.8, width: 0.9, depth: 8.8, height: 2.7, color: COLORS.blockBlue, glow: 0.46, edge: 0xcce0ff });
-  addSolidBox({ right: 10.1, forward: 7.6, width: 0.9, depth: 7.3, height: 2.7, color: COLORS.blockBlue, glow: 0.46, edge: 0xcce0ff });
-  addSolidBox({ right: 4.8, forward: 12.2, width: 7.6, depth: 0.7, height: 2.4, color: COLORS.blockGreen, glow: 0.44, edge: 0xd8ffe6 });
+  const start = level.playerStart ?? { right: 0, forward: 0, yaw: 0 };
+  WORLD.fromBasisComponents(start.right, 0, start.forward, player.position);
+  player.yaw = start.yaw ?? 0;
+  player.lastYaw = player.yaw;
 
-  addColumn(-13, -1.8, 0.72, 4.8, COLORS.cyan);
-  addColumn(13, -1.8, 0.72, 4.8, COLORS.cyan);
-  addColumn(-4.9, 11.7, 0.6, 4.3, COLORS.magenta);
-  addColumn(7.7, -14, 0.52, 3.8, COLORS.amber);
-
-  addMarkerBox({ right: -14, forward: -14, up: 1.9, width: 0.35, depth: 0.35, height: 3.1, color: COLORS.cyan, spin: 0.4 });
-  addMarkerBox({ right: 13.5, forward: -5.7, up: 2.1, width: 0.48, depth: 0.48, height: 2.4, color: COLORS.amber, spin: -0.32 });
-  addMarkerBox({ right: -13, forward: 14, up: 2.2, width: 0.42, depth: 0.42, height: 2.8, color: COLORS.magenta, spin: 0.27 });
-  addMarkerBox({ right: 13.7, forward: 15.2, up: 1.8, width: 0.36, depth: 0.36, height: 3.5, color: COLORS.green, spin: -0.18 });
-
-  addPickup({
-    right: -5.6,
-    forward: -12.6,
-    color: COLORS.cyan,
-    baseFreq: 330,
-    label: 'still',
-    kind: 'still / any side',
-    hint: 'Anchor 1: touch the floor ring from any side.',
-  });
-  addPickup({
-    right: 8.9,
-    forward: -4.8,
-    color: COLORS.amber,
-    baseFreq: 410,
-    label: 'gate',
-    kind: 'still / gated side',
-    approachYaw: Math.PI,
-    approachArc: Math.PI / 4.4,
-    hint: 'Anchor 2: enter the gate from its open side.',
-  });
-  addPickup({
-    right: -10.2,
-    forward: 3.1,
-    color: COLORS.magenta,
-    baseFreq: 500,
-    label: 'shuttle',
-    kind: 'moving line / any side',
-    moving: true,
-    motionRight: 2.6,
-    motionSpeed: 1.05,
-    hint: 'Anchor 3: read the regular left-right shuttle, then touch it.',
-  });
-  addPickup({
-    right: 8.4,
-    forward: 10.6,
-    color: COLORS.green,
-    baseFreq: 570,
-    label: 'moving gate',
-    kind: 'moving ellipse / gated side',
-    moving: true,
-    approachYaw: -Math.PI / 2,
-    approachArc: Math.PI / 5,
-    motionRight: 1.8,
-    motionForward: 0.9,
-    motionSpeed: 0.86,
-    hint: 'Anchor 4: track the oval motion and enter through the lit side.',
-  });
-  addPickup({
-    right: -14.2,
-    forward: 15.1,
-    up: 2.05,
-    color: COLORS.red,
-    baseFreq: 650,
-    label: 'air',
-    kind: 'air / jump',
-    airborne: true,
-    hint: 'Anchor 5: jump through the suspended anchor.',
-  });
-  addFrameShard();
-  addPortal();
   activateCurrentPickup();
 }
 
 // Decision 4(d): the compass is a shard of the painting's frame, found by ear.
-function addFrameShard() {
+function addFrameShard({ right, forward, up }) {
   const group = new THREE.Group();
-  group.position.copy(basisPosition(14.8, 0.82, -15.2));
+  group.position.copy(basisPosition(right, up, forward));
 
   const wood = material(0xc98a4b, { emissive: 0x8a5a2e, emissiveIntensity: 0.5, roughness: 0.8 });
   const barA = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.1, 0.1), wood);
@@ -1433,8 +1365,19 @@ function loop(time) {
   requestAnimationFrame(loop);
 }
 
-function init() {
-  addWorld();
+async function loadLevel() {
+  const requested = new URLSearchParams(window.location.search).get('level') || '1';
+  const id = String(parseInt(requested, 10) || 1).padStart(2, '0');
+  try {
+    return (await import(`./levels/level${id}.js`)).default;
+  } catch (error) {
+    console.warn(`Level "${requested}" failed to load; falling back to level 01.`, error);
+    return (await import('./levels/level01.js')).default;
+  }
+}
+
+async function init() {
+  addWorld(await loadLevel());
   buildAnchorSegments();
   resize();
   updatePlayer(0);
@@ -1448,7 +1391,7 @@ function init() {
   window.addEventListener('keyup', handleKeyUp);
   window.addEventListener('resize', resize);
   // Dev hook: read-only state access for debugging/automation. Not part of the game.
-  window.sliceborne = { player, game, pickups, beacons, solids };
+  window.coplanar = { player, game, pickups, beacons, solids };
   requestAnimationFrame(loop);
 }
 

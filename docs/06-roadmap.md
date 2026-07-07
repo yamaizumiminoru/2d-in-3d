@@ -22,8 +22,7 @@ Confirmed user priorities: (1) audio that the player genuinely needs, (2) moveme
 
 The game's biggest known gap: sound exists but isn't needed. **§B1–B2 (echo delays + 3-ray scan-differential) landed 2026-07-07** — see [04-audio](04-audio.md) status note; the user has not yet played/tuned it by ear, so treat the echo constants as first-draft. Remaining: user listening pass (incl. periodic vs on-demand ping decision), §B3 room reverb, then one new level that *requires* audio (see [08-level-design](08-level-design.md) "dark room" pattern). This phase probably needs the level-loading refactor:
 
-- Extract `addWorld()` into per-level ES modules: `prototype/levels/level01.js` exporting `{ playerStart, solids, columns, markers, pickups, portal }` consumed by a loader. Plain data + the existing `add*` functions; no build step.
-- Level select can be a URL param (`?level=2`) before any menu exists.
+- ✅ **Loader shipped 2026-07-07:** `prototype/levels/level01.js` (plain-data module: playerStart, bounds, walls, columns, markers, pickups, frameShard, portal) consumed by `addWorld(level)`; `?level=N` URL param with fallback to 01; verified by playthrough. New levels = new data files, zero engine changes for ST1–7-class content.
 
 **Acceptance**: eyes-closed test from 04-audio passes; a playtester (the user) completes the dark-room level using sound; the original room still plays unchanged as level 1; stereo panning only via the ③ tilt law ([04-audio](04-audio.md) §D — mono at vertical scan).
 

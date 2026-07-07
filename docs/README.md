@@ -1,7 +1,7 @@
-# Sliceborne Documentation
+# Coplanar Documentation
 
 > **日本語での案内**
-> このフォルダは、Sliceborne（2次元人が3次元空間に投げ込まれるゲーム）を、どのコーディングエージェントでも最後まで完成させられるようにするためのドキュメント一式です。2026-07-06 時点の実装（`prototype/script.js` ほか）を精読した上で書かれており、関数名・定数・数値はすべて実コードと一致しています。エージェントに作業を頼むときは「まず `AGENTS.md` と `docs/` を読んでから着手して」と指示すれば、コンセプトを壊さずに開発を継続できます。ドキュメント本文は、どのエージェントでも確実に読めるよう英語で書いてあります。
+> このフォルダは、Coplanar（2次元人が3次元空間に投げ込まれるゲーム）を、どのコーディングエージェントでも最後まで完成させられるようにするためのドキュメント一式です。2026-07-06 時点の実装（`prototype/script.js` ほか）を精読した上で書かれており、関数名・定数・数値はすべて実コードと一致しています。エージェントに作業を頼むときは「まず `AGENTS.md` と `docs/` を読んでから着手して」と指示すれば、コンセプトを壊さずに開発を継続できます。ドキュメント本文は、どのエージェントでも確実に読めるよう英語で書いてあります。
 
 All documents are grounded in the actual code as of 2026-07-06. Function names, constants, and numbers are copied from the source, not paraphrased. If code and docs ever disagree, trust the code, then fix the doc.
 
@@ -32,8 +32,10 @@ Then, per task:
 - Perception: scan strip + yaw-shifted afterimage panorama + brief post-anchor 3D reveal. Working.
 - Audio: per-beacon tones + self-ping + wall bump + chime, **plus Echolocation v2 §B1–B2** (real delayed echo returns; near = sharp *kin*, far = dull *bon*), master limiter, **and tilt-derived stereo (decision ③, adopted & implemented 2026-07-07)**: pan = `−0.6·|sin(scanRoll)|·sin(rel)` on beacons and echo side rays — mono at vertical scan, full stereo reserved for the ST11 unlock. The game is still solvable without sound — the audio-forced level remains the top roadmap item.
 - Phase 0 hardening done: Three.js vendored locally, frame-rate-independent animation, paused game clock (`game.time`), master compressor. Remaining from Phase 0: end screen.
+- **Title decided (memo ⑥): «Coplanar — a 2D adventure in 3D»** — renamed from the Codex working title everywhere except the historical handoff file; dev hook is now `window.coplanar`.
+- **Level loader shipped (Phase 1 refactor done):** levels are plain-data modules in `prototype/levels/`, selected by `?level=N` (fallback to 01). level01 = the reference room, verified by playthrough.
 - Decision ② **resolved: hybrid** (2026-07-07, default `pingMode = 2`): quiet heartbeat (center ray, 6 u) + focused ping on `F`/right-click; keys `0`/`1` remain as dev comparison. Story decided same day: ending = return to the painting which has gained a picture of something 3D; characters nameless; her refusal = 90° flip. Title = open memo ⑥ in [01-vision](01-vision.md). Also fixed: collecting an anchor in DEV 3D froze the game (reveal timer now lives in the loop).
 - HUD decisions ④⑤ adopted & implemented 2026-07-07: all measurement cells are **1D marks** (anchor segments in anchor colors, SIGNAL/DRIFT fill-bars, DIR as a 1D heading ribbon), and the compass is **earned** by finding the wooden-humming **frame shard** (relative → absolute navigation two-phase per stage).
 - Body & fiction decisions 2026-07-07: player/heroine = tall **portrait** planes, enemies = wide **landscape** (quadruped) planes; the finale touch is **coplanar edge-to-edge** (the kiss — never a side touch, which is the attack verb). See [07-combat-body-plane](07-combat-body-plane.md) §2.5/§5.
-- Dev hook: `window.sliceborne` exposes `{player, game, pickups, beacons, solids}` read-only for debugging/automation.
+- Dev hook: `window.coplanar` exposes `{player, game, pickups, beacons, solids}` read-only for debugging/automation.
 - Not yet built: reverb (B3), audio-forced level, body orientation, narrow gaps, enemies/combat, multi-level progression, story framing, menu/save, end screen.

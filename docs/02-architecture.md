@@ -13,7 +13,8 @@ Ground truth as of 2026-07-06. `prototype/script.js` is ~1200 lines, single file
 | File | Role |
 | --- | --- |
 | `prototype/index.html` | HUD markup + all CSS, start veil, reticle overlay, `#mental-canvas`, import map |
-| `prototype/script.js` | Everything else: world, input, physics, perception rendering, audio, game state |
+| `prototype/script.js` | Engine: world building, input, physics, perception rendering, audio, game state |
+| `prototype/levels/levelNN.js` | **Level data modules** (plain objects: playerStart, bounds, walls, columns, markers, pickups, frameShard, portal). Selected by `?level=N` URL param (default 1, bad ids fall back to 01 with a console warning). Colors are raw hex so level files stay self-contained |
 | `prototype/modules/math/WorldBasis.js` | Coordinate-basis abstraction (from GameBlocks, MIT) |
 | `prototype/gameblocks_usage.md` | Notes on the borrowed abstraction |
 | `prototype/third_party/GameBlocks_LICENSE.txt` | License |
@@ -88,7 +89,7 @@ updateHud()                          // SIGNAL / ANCHORS / DRIFT / compass / mod
 drawMentalImage(dt)                  // perception rendering (or DEV 3D / reveal overlay)
 ```
 
-Startup: `init()` → `addWorld()` (lights, floor, walls, obstacles, columns, markers, 5 pickups, portal, `activateCurrentPickup()`), `resize()`, event listeners, `requestAnimationFrame(loop)`.
+Startup: `init()` (async) → `loadLevel()` (dynamic `import('./levels/levelNN.js')` from `?level=N`, fallback to 01) → `addWorld(level)` (lights, floor, then data-driven: bounds override, walls, columns, markers, pickups, frame shard, portal, player start, `activateCurrentPickup()`) → `buildAnchorSegments()`, `resize()`, event listeners, `requestAnimationFrame(loop)`. `BOUNDS` is a `let` overridden per level; the floor/grid size (42) is still fixed — parametrize when a level needs a different footprint.
 
 `begin()` runs on first Space/Enter/click: hides the start veil, creates the `AudioContext` (browser gesture requirement), shows the opening message.
 
@@ -121,7 +122,7 @@ Items 1, 4 are *don't-fix-casually*. (Fixed on 2026-07-07, previously listed her
 
 ## Dev hook
 
-`init()` exposes `window.sliceborne = { player, game, pickups, beacons, solids }` — read-only state access for debugging and browser automation (module scope is otherwise unreachable from the console). Not part of the game; keep it out of gameplay logic.
+`init()` exposes `window.coplanar = { player, game, pickups, beacons, solids }` — read-only state access for debugging and browser automation (module scope is otherwise unreachable from the console). Not part of the game; keep it out of gameplay logic.
 
 ## Where to change things (function index)
 
