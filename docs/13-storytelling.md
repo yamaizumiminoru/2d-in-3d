@@ -57,6 +57,10 @@ Same flat-theater system, richer scenes. Not every stage gets one — scarcity k
 - **Frame shards (optional meta-picture):** each stage's found shard adds one stroke to a slowly self-completing flat picture (shown on the title/level-select screen); by the end it is the painting's frame, rebuilt. Decide with the user when a menu exists.
 - **The ending:** zero words. The regained painting simply *contains one new picture* — something with perspective in it ([10-campaign](10-campaign.md) ST13). The last sentence of the game is an image.
 
+## The title as the arc (implemented 2026-07-08)
+
+The start card's word **COPLANAR** is split into per-letter spans. At rest the letters are coplanar (flat, readable). On start (`begin()` → `setTitleCoplanar(false)`) each letter rotates to a distinct 3D angle — *coplanarity breaks* as the flat beings are thrown into volume, playing out as the veil fades. On the win, after ~3.2 s, the card fades back (`showEndTitle()`) with the letters realigned to coplanar and the subtitle changed to the ending line — the reunion, told by the title itself. This is the emblem grammar (below) in its smallest, already-shipped form; the eventual ST13 emblem should rhyme with it. Tunables: the scatter angles in `buildTitle()`, the CSS `.title-letter` transition, the veil `opacity` transition.
+
 ## Production notes
 
 - One overlay canvas (reuse the veil's positioning/styling); draw functions receive `t` and the `COLORS` palette; skip on `keydown`/`pointerdown`; emblem ≈ 2 s, vignette ≤ 6 s.

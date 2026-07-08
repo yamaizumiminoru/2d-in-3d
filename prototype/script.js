@@ -68,8 +68,34 @@ const dom = {
   modeReadout: document.getElementById('mode-readout'),
   message: document.getElementById('message'),
   startVeil: document.getElementById('start-veil'),
+  startTitle: document.getElementById('start-title'),
+  startSub: document.getElementById('start-sub'),
   reticle: document.getElementById('reticle'),
 };
+
+// Title letters break coplanarity on start (thrown into 3D) and realign on the win.
+let titleLetters = [];
+function buildTitle() {
+  const text = dom.startTitle.textContent;
+  dom.startTitle.textContent = '';
+  titleLetters = [];
+  for (let i = 0; i < text.length; i += 1) {
+    const span = document.createElement('span');
+    span.className = 'title-letter';
+    span.textContent = text[i];
+    const rx = Math.round(Math.sin(i * 1.3) * 46);
+    const ry = Math.round(Math.cos(i * 0.9 + 1) * 56);
+    const rz = Math.round(Math.sin(i * 2.1) * 22);
+    span.dataset.scatter = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+    dom.startTitle.appendChild(span);
+    titleLetters.push(span);
+  }
+}
+function setTitleCoplanar(coplanar) {
+  for (const span of titleLetters) {
+    span.style.transform = coplanar ? 'rotateX(0deg) rotateY(0deg) rotateZ(0deg)' : span.dataset.scatter;
+  }
+}
 
 // 1D heading ribbon (memo 5): world yaw of each cardinal in the player-yaw convention
 const RIBBON_PX_PER_RADIAN = 26;
@@ -869,6 +895,7 @@ function updatePortal(t, dt) {
     game.revealTimer = REVEAL_DURATION;
     showMessage('The flat traveler crosses the third axis.', 8);
     dom.modeReadout.textContent = 'VOLUME HELD';
+    setTimeout(showEndTitle, 3200); // title card returns, letters realign to coplanar
   }
 }
 
@@ -1311,10 +1338,18 @@ function resize() {
 function begin() {
   if (game.started) return;
   game.started = true;
+  setTitleCoplanar(false); // letters scatter as the veil fades — thrown into 3D
   dom.startVeil.classList.add('hidden');
   startAudio();
   if (audioCtx) audioCtx.resume();
   showMessage('The echo line finds depth.', 3.2);
+}
+
+// On the win, the title card fades back in with the letters realigned — coplanar again.
+function showEndTitle() {
+  setTitleCoplanar(true);
+  dom.startSub.innerHTML = '<strong>Coplanar.</strong> The two planes meet in one at last.';
+  dom.startVeil.classList.remove('hidden');
 }
 
 function jump() {
@@ -1483,6 +1518,7 @@ async function loadLevel() {
 }
 
 async function init() {
+  buildTitle();
   addWorld(await loadLevel());
   buildAnchorSegments();
   resize();

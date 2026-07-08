@@ -267,12 +267,24 @@
         linear-gradient(90deg, rgba(2, 3, 4, 0.96), rgba(2, 3, 4, 0.78)),
         repeating-linear-gradient(90deg, rgba(68, 231, 255, 0.05) 0 1px, transparent 1px 16px);
       cursor: pointer;
+      transition: opacity 900ms ease;
     }
 
     #start-veil.hidden {
       opacity: 0;
       pointer-events: none;
-      transition: opacity 360ms ease;
+    }
+
+    /* Title letters: coplanar (flat) at rest; scatter into different 3D angles on start */
+    .start-mark h1 {
+      perspective: 620px;
+    }
+
+    .title-letter {
+      display: inline-block;
+      transform-origin: 50% 50%;
+      transition: transform 950ms cubic-bezier(0.2, 0.72, 0.2, 1);
+      will-change: transform;
     }
 
     .start-mark {
@@ -353,8 +365,8 @@
 
   <div id="start-veil">
     <div class="start-mark">
-      <h1>COPLANAR</h1>
-      <p><strong>a 2D adventure in 3D</strong> — a two-dimensional traveler reads a three-dimensional ruin through a single moving cut.</p>
+      <h1 id="start-title">COPLANAR</h1>
+      <p id="start-sub"><strong>a 2D adventure in 3D</strong> — a two-dimensional traveler reads a three-dimensional ruin through a single moving cut.</p>
     </div>
   </div>
 
