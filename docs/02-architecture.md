@@ -55,8 +55,8 @@ These are internally consistent as tuned (anchor 2: `approachYaw: Math.PI`, anch
 ## Core state
 
 ```js
-player = { position: Vector3, yaw, lastYaw, scanRoll, angularVelocity, rollVelocity,
-           height, verticalVelocity, grounded }
+player = { position: Vector3, yaw, lastYaw, scanRoll, scanRollTarget, angularVelocity,
+           rollVelocity, height, verticalVelocity, grounded }
 game   = { started, won, collected, compassFound, time, pulse, mouseScanDelta, wheelRollDelta,
            revealTimer, devView, activePickupIndex, lastAnchorHint, lastPortalHint,
            lastWallBumpAt, messageTimer, lastTime }
@@ -97,7 +97,7 @@ Startup: `init()` (async) → `loadLevel()` (dynamic `import('./levels/levelNN.j
 
 All handlers are on `window`. `keys` is a `Set` of `event.code`. Buffered mouse deltas (`game.mouseScanDelta`, `game.wheelRollDelta`) are consumed once per frame in `updatePlayer` and zeroed. During `inputLocked()` new keydowns are ignored (but keys already held stay held) and buffered deltas are cleared. Pointer lock is requested on click; **mouse scan works even without pointer lock** (raw `movementX`), which is a known quirk, not a feature to preserve.
 
-**Gamepad** (added 2026-07-08): polled — not event-driven — once per frame by `readGamepad()` at the top of `updatePlayer`, which advances the edge-detection state in the module-level `pad` object. Left stick + right-stick-X fold additively into the same move/yaw axes as keyboard; **tilt is the L2/R2 analog triggers** (`gp.buttons[6/7].value`, press depth = tilt speed), B resets. Button edges call `begin`/`jump`/`fireFocusedPing`/`resetTilt`. `isFocusMode()` is the single source of truth for focus (Shift OR pad L1), read by both `updatePlayer` and `drawMentalImage`. Constants: `PAD_DEADZONE`, `PAD_SCAN_SPEED`, `PAD_ROLL_SPEED`. ⚠️ `readGamepad`'s no-pad `idle` object must carry every key the result does (a missing `roll` once fed `NaN` into `scanRoll` and broke the whole scan).
+**Gamepad** (added 2026-07-08): polled — not event-driven — once per frame by `readGamepad()` at the top of `updatePlayer`, which advances the edge-detection state in the module-level `pad` object. Left stick + right-stick-X fold additively into the same move/yaw axes as keyboard. **Tilt is detented + spring** (decision ⑦, [05-gameplay](05-gameplay.md)): `player.scanRollTarget` holds a notch (`0/±30/±45/±60`) and `player.scanRoll` eases toward it (`TILT_SPRING`). Gamepad shoulders set the target while held and spring it to 0 on release (`pad.tiltWasHeld` edge); keyboard `↑/↓` and the wheel call `stepTilt(±1)` (persistent). Pad focus is a **toggle** (`pad.focus`, flipped on the focus-button edge), ping is R3/X, jump A, reset B. `isFocusMode()` is the single source of truth for focus, read by both `updatePlayer` and `drawMentalImage`. Constants: `PAD_DEADZONE`, `PAD_SCAN_SPEED`, `TILT_STEPS`, `TILT_NOTCH_DEG`, `TILT_SPRING`. ⚠️ `readGamepad`'s no-pad `idle` object must carry every key the result does (a missing key once fed `NaN` into `scanRoll` and broke the whole scan).
 
 Controls table and exact semantics: [05-gameplay](05-gameplay.md).
 

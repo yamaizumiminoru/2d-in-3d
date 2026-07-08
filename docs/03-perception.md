@@ -48,9 +48,10 @@ Order matters; this sequence produces the afterimage feel:
 | `PANORAMA_PIXELS_PER_RADIAN` | 390 | World feels larger on screen; less of it fits in memory |
 | `REVEAL_DURATION` | 0.28 | Longer 3D flash (design-sensitive; see invariant 4) |
 | `MOUSE_SCAN_SPEED` | 0.0042 | Faster mouse scanning |
-| `WHEEL_ROLL_SPEED` | 0.0024 | Faster wheel tilt |
-| `TURN_SPEED` / `ROLL_SPEED` | 1.75 / 1.15 rad/s | Faster keyboard scan/tilt |
-| `MAX_SCAN_ROLL` | π/3 | Wider tilt range |
+| `TURN_SPEED` | 1.75 rad/s | Faster keyboard scan yaw |
+| `TILT_STEPS` / `TILT_NOTCH_DEG` | ±30/45/60° | Tilt notch grid (decision ⑦; keyboard tap-steps, pad holds) |
+| `TILT_SPRING` | 13 (1/s) | How fast `scanRoll` eases to its notch (~0.15 s) |
+| `MAX_SCAN_ROLL` | π/3 | Tilt clamp / top notch |
 | strip widths (in `drawMentalImage`) | 3→8 px, 8→18 px | More live information (design-sensitive; pillar 2) |
 | decay alphas (step 2) | 0.03 + 0.03 | Faster forgetting |
 

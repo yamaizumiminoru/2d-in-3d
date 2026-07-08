@@ -9,9 +9,9 @@ Controls, physics, anchors, portal, HUD — with the exact numbers from `prototy
 | `W A S D` | Move (forward/strafe, yaw-relative, planar) | `MOVE_SPEED` 4.2 u/s; diagonal normalized |
 | `← →` | Scan yaw | `TURN_SPEED` 1.75 rad/s; left arrow = +yaw = scan turns left, afterimage drifts right |
 | Mouse X | Scan yaw | `MOUSE_SCAN_SPEED` 0.0042; aligned with arrows (mouse right = scan right); works with or without pointer lock |
-| `↑ ↓` | Scan tilt (roll) | `ROLL_SPEED` 1.15 rad/s, clamped ±`MAX_SCAN_ROLL` (π/3) |
-| Mouse wheel | Scan tilt | `WHEEL_ROLL_SPEED` 0.0024 |
-| `↑`+`↓` together | Reset tilt | also starts the game if not started |
+| `↑ ↓` | Scan tilt — **tap-step a notch** | ↑ steps toward +60°, ↓ toward −60°, through `[−60,−45,−30,0,30,45,60]`; persists; `scanRoll` springs to it (`TILT_SPRING` 13) |
+| Mouse wheel | Scan tilt — one notch per wheel step | same notch grid |
+| `↑`+`↓` together | Reset tilt (→0) | also starts the game if not started |
 | Middle click | Reset tilt | handled in `pointerdown`/`mousedown`/`auxclick` for cross-browser |
 | `Space` | Start, then jump | `JUMP_SPEED` 6.2, `GRAVITY` 17.5 ⇒ apex ≈ **1.10 u** at ~0.35 s, airtime ~0.71 s |
 | Left click | Start, then jump | also requests pointer lock |
@@ -21,27 +21,33 @@ Controls, physics, anchors, portal, HUD — with the exact numbers from `prototy
 | `0` / `1` / `2` | Ping mode (decision ②: **hybrid adopted**, default = 2) | 0 = periodic, 1 = on-demand kept as dev comparison; retire before release |
 | `F` / right-click | Focused ping | modes 1–2 only; full 3-ray fan, full range, `FOCUSED_PING_COOLDOWN` 0.35 s |
 
-### Gamepad (standard mapping, added 2026-07-08 — dual analog)
+### Gamepad (standard mapping — the recommended way to play)
 
-Left stick = move, right stick = scan. Analog magnitude scales speed (partial deflection = slow), which delivers the roadmap's "movement/scan coupling" note for free. Keyboard and pad are additive — both work at once.
-
-Tilt is on the **analog triggers** — the user's refinement 2026-07-08: L2/R2 report a 0–1 press value, so *press depth = tilt speed* (a light touch nudges the line, a full pull lays it flat). That analog control fits a 2D body better than a digital button, and keeps the right thumb free for move-and-scan.
+Left stick = move, right stick X = scan yaw (analog magnitude scales speed — the roadmap's "movement/scan coupling"). **Tilt is spring-hold on the shoulders** (decision ⑦, 2026-07-08): you hold a shoulder to bend the scan line and *release to let it sag back to vertical*. That momentary "peek" fits the 2D body (the line hangs vertical; leaning is a sustained effort) and sidesteps the disorientation of a persistent tilt — the pad is the recommended controller precisely because only it gets the release-returns feel. Digital holds also work on triggerless pads (Switch). Keyboard + pad additive.
 
 | Control | Action | Notes |
 | --- | --- | --- |
 | **Left stick** | Move (forward/strafe, planar) | folds into the same axes as WASD; magnitude ∝ speed |
-| **Right stick X** | Scan yaw | push right = scan right; `PAD_SCAN_SPEED` 2.4 rad/s at full. Right-stick Y is unused |
-| **R2** (btn 7, analog) | Scan tilt up | press depth × `PAD_ROLL_SPEED` 1.6 rad/s; ±π/3 clamp |
-| **L2** (btn 6, analog) | Scan tilt down | press depth scales speed; L2−R2 nets to 0 if both pulled |
-| **B** (btn 1) | Reset tilt | edge (snap to 0) |
-| **A** (btn 0) | Start, then jump | edge-detected; `startEdge`/`jumpEdge` |
-| **R1** (btn 5) | Focused ping | edge; modes 1–2 |
-| **L1** (btn 4) | Focus mode | hold; same ×0.38 turn / ×0.46 move as Shift |
+| **Right stick X** | Scan yaw | push right = scan right; `PAD_SCAN_SPEED` 2.4 rad/s at full. Right-stick Y unused |
+| **R1** / **R2** / **R1+R2** | Tilt +30° / +45° / +60° (clockwise), hold | spring-hold; release → 0. `TILT_NOTCH_DEG` |
+| **L1** / **L2** / **L1+L2** | Tilt −30° / −45° / −60° (counter-clockwise), hold | mirror of the right shoulder |
+| **A** (btn 0) | Start, then jump | edge |
+| **B** (btn 1) | Reset tilt (→0) | edge; redundant with release, kept for parity |
+| **R3** (stick click) / **X** | Focused ping | edge; modes 1–2; click the scan stick to "listen" |
+| **L3** (stick click) / **Y** | Focus mode | **toggle** (tap on/off) so no thumb stays pinned; ORs with Shift |
 | **Start** (btn 9) | Start | edge |
 
-`PAD_DEADZONE` 0.16 (sticks, radial-rescaled per axis); triggers get a small 0.06 floor to ignore rest noise. Polled once per frame in `updatePlayer` via `readGamepad()`; `isFocusMode()` ORs the pad focus button with Shift. **Caveats:** trigger analog values require the browser's *standard* gamepad mapping (`gp.buttons[6/7].value`); and a gamepad button counts as a user gesture for `AudioContext` in current Chromium/Firefox, but if a browser refuses, a key/click still starts audio.
+`PAD_DEADZONE` 0.16 (sticks, radial-rescaled). Polled once per frame in `updatePlayer` via `readGamepad()`. Tilt is detented (`0/±30/±45/±60`) and `scanRoll` springs toward the target (`TILT_SPRING` 13 → ~0.15 s). **Caveat:** a gamepad button counts as a user gesture for `AudioContext` in current Chromium/Firefox, but if a browser refuses, a key/click still starts audio.
 
 During a reveal (`inputLocked()`): all inputs ignored/cleared except the `3` toggle; held movement keys resume after.
+
+### Decision memo ⑦: detented spring tilt (adopted 2026-07-08)
+
+Tilt went from free continuous (±60°, any angle) to **discrete notches** `0/±30/±45/±60` that `scanRoll` springs toward. Two device idioms, same grid:
+- **Gamepad = spring-hold:** hold a shoulder for a notch, release returns to vertical. The "peek" model (line hangs vertical; leaning is effort) fixes tilt disorientation and needs no analog trigger (Switch-safe). *Recommended controller.*
+- **Keyboard/wheel = tap-step persistent:** ↑/↓ (or wheel) step one notch and it stays; ↑+↓ resets. Solves the "60→45" problem trivially (one ↓ tap) — the puzzle only existed if you forced keyboard to spring with one key per direction.
+
+**Level-design consequence (important):** intermediate angles now come in 15° notches. The grain tolerance (±6.9°) means notches cover the specced targets (40°→45°, 35°→30°), and **counter-tilt banks (ST6) and grain-anchor angles should be authored on the 30/45/60 grid** so they're reachable. Stereo direction-finding (ST8/ST11) now has 3 magnitude steps rather than a smooth sweep — validate on hardware; if a stage truly needs continuous tilt, that's a per-stage exception to raise with the user. The 90° unlock (ST11) will add a 90° notch. Old free-tilt is gone (in git history); `TILT_STEPS`/`TILT_NOTCH_DEG`/`TILT_SPRING` are the tunables.
 
 ## Player physics
 

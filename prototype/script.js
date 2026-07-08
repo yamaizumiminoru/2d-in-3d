@@ -3,7 +3,6 @@ import { DEFAULT_WORLD_BASIS as WORLD } from './modules/math/WorldBasis.js';
 
 const SENSOR_RENDER_WIDTH = 96;
 const TURN_SPEED = 1.75;
-const ROLL_SPEED = 1.15;
 const MOVE_SPEED = 4.2;
 const PLAYER_RADIUS = 0.48;
 const EYE_HEIGHT = 1.2;
@@ -11,8 +10,13 @@ const PANORAMA_PIXELS_PER_RADIAN = 390;
 const SCAN_DOPPLER_AMOUNT = 0.28;
 const ECHO_PERIOD = 0.94;
 const MOUSE_SCAN_SPEED = 0.0042;
-const WHEEL_ROLL_SPEED = 0.0024;
 const MAX_SCAN_ROLL = Math.PI / 3;
+// Tilt is detented (0/±30/±45/±60°) and spring-loaded: scanRoll eases toward
+// scanRollTarget. Gamepad holds a notch and springs back to 0 on release;
+// keyboard/wheel tap-step the target and it persists. `sag` back ~0.15 s.
+const TILT_STEPS = [-Math.PI / 3, -Math.PI / 4, -Math.PI / 6, 0, Math.PI / 6, Math.PI / 4, Math.PI / 3];
+const TILT_NOTCH_DEG = [0, 30, 45, 60]; // gamepad: 0 / one shoulder / other / both
+const TILT_SPRING = 13; // ease rate (1/s)
 const GRAVITY = 17.5;
 const JUMP_SPEED = 6.2;
 const PICKUP_TOUCH_RADIUS = 1.18;
@@ -31,11 +35,11 @@ const FOCUSED_PING_COOLDOWN = 0.35;
 const HEARTBEAT_PING_SCALE = 0.22;
 const HEARTBEAT_ECHO_RANGE = 6;
 // Gamepad (standard mapping): left stick = move, right stick X = scan yaw
-// (analog magnitude scales pan speed — the roadmap's movement/scan coupling),
-// L2/R2 analog triggers = scan tilt down/up (press depth = speed), B = reset.
+// (analog magnitude scales pan speed — the roadmap's movement/scan coupling).
+// Tilt is spring-hold on the shoulders: R1=30°/R2=45°/R1+R2=60° (clockwise),
+// L1/L2 mirror it counter-clockwise; release springs back to vertical.
 const PAD_DEADZONE = 0.16;
 const PAD_SCAN_SPEED = 2.4; // rad/s at full right-stick X deflection
-const PAD_ROLL_SPEED = 1.6; // rad/s at full L2/R2 trigger depth
 // Default playable bounds; overridden per level by addWorld(level.bounds)
 let BOUNDS = { minRight: -18.5, maxRight: 18.5, minForward: -18.5, maxForward: 18.5 };
 
@@ -96,6 +100,7 @@ const player = {
   yaw: 0,
   lastYaw: 0,
   scanRoll: 0,
+  scanRollTarget: 0, // detented tilt target; scanRoll springs toward it
   angularVelocity: 0,
   rollVelocity: 0,
   height: 0,
@@ -109,9 +114,15 @@ const pickups = [];
 const beacons = [];
 const animated = [];
 
-// Gamepad state: `focus` mirrors the held focus button; `prev` holds last-frame
-// button states for edge detection. Polled once per frame in updatePlayer.
-const pad = { connected: false, focus: false, prev: { jump: false, reset: false, ping: false, start: false } };
+// Gamepad state: `focus` is a toggle (flipped on the focus button's edge);
+// `tiltWasHeld` tracks the spring-release edge; `prev` holds last-frame button
+// states for edge detection. Polled once per frame in updatePlayer.
+const pad = {
+  connected: false,
+  focus: false,
+  tiltWasHeld: false,
+  prev: { jump: false, reset: false, ping: false, start: false, focusToggle: false },
+};
 
 const game = {
   started: false,
@@ -122,7 +133,6 @@ const game = {
   time: 0,
   pulse: 0,
   mouseScanDelta: 0,
-  wheelRollDelta: 0,
   revealTimer: 0,
   devView: false,
   activePickupIndex: 0,
@@ -610,9 +620,20 @@ function inputLocked() {
 
 function clearBufferedInput() {
   game.mouseScanDelta = 0;
-  game.wheelRollDelta = 0;
   player.angularVelocity = 0;
   player.rollVelocity = 0;
+}
+
+// Snap the tilt target to the nearest notch shifted by `dir` steps (keyboard/wheel)
+function stepTilt(dir) {
+  let idx = 0;
+  let best = Infinity;
+  for (let i = 0; i < TILT_STEPS.length; i += 1) {
+    const d = Math.abs(TILT_STEPS[i] - player.scanRollTarget);
+    if (d < best) { best = d; idx = i; }
+  }
+  player.scanRollTarget = TILT_STEPS[clamp(idx + dir, 0, TILT_STEPS.length - 1)];
+  game.pulse = Math.max(game.pulse, 0.2);
 }
 
 function applyDeadzone(value) {
@@ -624,7 +645,7 @@ function applyDeadzone(value) {
 // inverted so up = forward / up-tilt) plus one-shot button edges. Must be called
 // exactly once per frame — it advances the edge-detection state in `pad`.
 function readGamepad() {
-  const idle = { moveX: 0, moveY: 0, lookX: 0, roll: 0, jumpEdge: false, pingEdge: false, resetEdge: false, startEdge: false };
+  const idle = { moveX: 0, moveY: 0, lookX: 0, tiltActive: false, tiltTarget: 0, jumpEdge: false, pingEdge: false, resetEdge: false, startEdge: false };
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   let gp = null;
   for (const candidate of pads) {
@@ -632,30 +653,37 @@ function readGamepad() {
   }
   if (!gp) {
     pad.connected = false;
-    pad.focus = false;
     return idle;
   }
   pad.connected = true;
 
   const axis = (i) => gp.axes[i] || 0;
   const held = (i) => Boolean(gp.buttons[i] && gp.buttons[i].pressed);
-  const analog = (i) => (gp.buttons[i] ? gp.buttons[i].value || 0 : 0);
-  const trigger = (v) => (v < 0.06 ? 0 : v); // triggers rest at 0; ignore noise
 
   const jump = held(0); // A
-  const reset = held(1); // B — reset tilt
-  const ping = held(5); // R1 — focused ping
+  const reset = held(1); // B — explicit tilt reset
+  const ping = held(11) || held(2); // R3 (click scan stick) or X — focused ping
+  const focusToggle = held(10) || held(3); // L3 or Y — toggle focus mode
   const start = held(9); // Start
-  pad.focus = held(4); // L1 — hold for focus mode
 
-  // L2/R2 analog triggers tilt the scan: press depth = tilt speed (R2 up / L2 down)
-  const roll = trigger(analog(7)) - trigger(analog(6));
+  // Shoulders hold a tilt notch: R1/R2 clockwise, L1/L2 counter-clockwise.
+  const l1 = held(4);
+  const l2 = held(6);
+  const r1 = held(5);
+  const r2 = held(7);
+  const rNotch = (r1 && r2) ? 3 : r2 ? 2 : r1 ? 1 : 0;
+  const lNotch = (l1 && l2) ? 3 : l2 ? 2 : l1 ? 1 : 0;
+  const tiltActive = rNotch > 0 || lNotch > 0;
+  const tiltTarget = (TILT_NOTCH_DEG[rNotch] - TILT_NOTCH_DEG[lNotch]) * (Math.PI / 180);
+
+  if (focusToggle && !pad.prev.focusToggle) pad.focus = !pad.focus;
 
   const result = {
     moveX: applyDeadzone(axis(0)),
     moveY: -applyDeadzone(axis(1)),
     lookX: applyDeadzone(axis(2)),
-    roll,
+    tiltActive,
+    tiltTarget,
     jumpEdge: jump && !pad.prev.jump,
     pingEdge: ping && !pad.prev.ping,
     resetEdge: reset && !pad.prev.reset,
@@ -665,6 +693,7 @@ function readGamepad() {
   pad.prev.ping = ping;
   pad.prev.reset = reset;
   pad.prev.start = start;
+  pad.prev.focusToggle = focusToggle;
   return result;
 }
 
@@ -694,7 +723,6 @@ function updatePlayer(dt) {
 
   // keyboard is discrete (±1), gamepad is analog; both fold into the same axes
   const scanTurn = (keys.has('ArrowLeft') ? 1 : 0) - (keys.has('ArrowRight') ? 1 : 0);
-  const rollInput = (keys.has('ArrowUp') ? 1 : 0) - (keys.has('ArrowDown') ? 1 : 0);
   const forward =
     (keys.has('KeyW') ? 1 : 0) -
     (keys.has('KeyS') ? 1 : 0) +
@@ -713,16 +741,22 @@ function updatePlayer(dt) {
   player.angularVelocity = normalizeAngle(player.yaw - oldYaw) / Math.max(dt, 0.001);
   game.mouseScanDelta = 0;
 
+  // Tilt: the gamepad holds a notch and springs back to 0 on release; keyboard/
+  // wheel set the target via edges (persistent). scanRoll eases toward the target.
+  if (gp.tiltActive) {
+    player.scanRollTarget = gp.tiltTarget;
+    pad.tiltWasHeld = true;
+  } else if (pad.tiltWasHeld) {
+    player.scanRollTarget = 0;
+    pad.tiltWasHeld = false;
+  }
+
   const oldRoll = player.scanRoll;
-  // R2 tilts up, L2 tilts down — analog trigger depth scales the tilt speed
-  const rollDelta = (rollInput * ROLL_SPEED + gp.roll * PAD_ROLL_SPEED) * focusMul * dt;
-  player.scanRoll = clamp(
-    player.scanRoll + rollDelta - game.wheelRollDelta * WHEEL_ROLL_SPEED,
-    -MAX_SCAN_ROLL,
-    MAX_SCAN_ROLL,
-  );
+  const ease = 1 - Math.exp(-TILT_SPRING * dt);
+  player.scanRoll += (player.scanRollTarget - player.scanRoll) * ease;
+  if (Math.abs(player.scanRoll) < 1e-4) player.scanRoll = 0;
+  player.scanRoll = clamp(player.scanRoll, -MAX_SCAN_ROLL, MAX_SCAN_ROLL);
   player.rollVelocity = (player.scanRoll - oldRoll) / Math.max(dt, 0.001);
-  game.wheelRollDelta = 0;
 
   if (!player.grounded || player.verticalVelocity !== 0) {
     player.verticalVelocity -= GRAVITY * dt;
@@ -1310,10 +1344,9 @@ function jump() {
 
 function resetTilt() {
   if (inputLocked()) return;
-  player.scanRoll = 0;
+  player.scanRollTarget = 0;
   player.rollVelocity = 0;
-  game.wheelRollDelta = 0;
-  dom.reticle.style.setProperty('--scan-roll', '0rad');
+  pad.tiltWasHeld = false;
   game.pulse = Math.max(game.pulse, 0.45);
   showMessage('Scan tilt reset.', 1.4);
 }
@@ -1362,9 +1395,12 @@ function handleKeyDown(event) {
   }
 
   if (event.code === 'Enter') begin();
-  if ((event.code === 'ArrowUp' || event.code === 'ArrowDown') && keys.has('ArrowUp') && keys.has('ArrowDown') && !event.repeat) {
+  // Keyboard tilt is tap-step (persistent notches): Up steps toward +60, Down
+  // toward -60; both at once resets to vertical.
+  if ((event.code === 'ArrowUp' || event.code === 'ArrowDown') && !event.repeat) {
     if (!game.started) begin();
-    resetTilt();
+    if (keys.has('ArrowUp') && keys.has('ArrowDown')) resetTilt();
+    else stepTilt(event.code === 'ArrowUp' ? 1 : -1);
   }
   if (event.code === 'Space' && !event.repeat) {
     if (!game.started) {
@@ -1419,7 +1455,8 @@ function handleMouseMove(event) {
 function handleWheel(event) {
   event.preventDefault();
   if (!game.started || inputLocked()) return;
-  game.wheelRollDelta += clamp(event.deltaY || 0, -120, 120);
+  // one wheel notch = one tilt step (up = tilt toward +60)
+  if (event.deltaY) stepTilt(event.deltaY < 0 ? 1 : -1);
 }
 
 function handleMouseDown(event) {
