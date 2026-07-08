@@ -97,7 +97,7 @@ Startup: `init()` (async) → `loadLevel()` (dynamic `import('./levels/levelNN.j
 
 All handlers are on `window`. `keys` is a `Set` of `event.code`. Buffered mouse deltas (`game.mouseScanDelta`, `game.wheelRollDelta`) are consumed once per frame in `updatePlayer` and zeroed. During `inputLocked()` new keydowns are ignored (but keys already held stay held) and buffered deltas are cleared. Pointer lock is requested on click; **mouse scan works even without pointer lock** (raw `movementX`), which is a known quirk, not a feature to preserve.
 
-**Gamepad** (added 2026-07-08): polled — not event-driven — once per frame by `readGamepad()` at the top of `updatePlayer`, which advances the edge-detection state in the module-level `pad` object. Analog axes fold additively into the same scan/move axes as keyboard; button edges call `begin`/`jump`/`fireFocusedPing`/`resetTilt`. `isFocusMode()` is the single source of truth for focus (Shift OR pad LB/LT), read by both `updatePlayer` and `drawMentalImage`. Constants: `PAD_DEADZONE`, `PAD_SCAN_SPEED`, `PAD_ROLL_SPEED`.
+**Gamepad** (added 2026-07-08): polled — not event-driven — once per frame by `readGamepad()` at the top of `updatePlayer`, which advances the edge-detection state in the module-level `pad` object. Left stick + right-stick-X fold additively into the same move/yaw axes as keyboard; **tilt is the R1/L1 bumpers** (digital, like the arrow keys), L1+R1 resets. Button edges call `begin`/`jump`/`fireFocusedPing`/`resetTilt`. `isFocusMode()` is the single source of truth for focus (Shift OR pad LT), read by both `updatePlayer` and `drawMentalImage`. Constants: `PAD_DEADZONE`, `PAD_SCAN_SPEED`, `PAD_ROLL_SPEED`.
 
 Controls table and exact semantics: [05-gameplay](05-gameplay.md).
 

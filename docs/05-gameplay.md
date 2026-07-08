@@ -25,15 +25,19 @@ Controls, physics, anchors, portal, HUD — with the exact numbers from `prototy
 
 Left stick = move, right stick = scan. Analog magnitude scales speed (partial deflection = slow), which delivers the roadmap's "movement/scan coupling" note for free. Keyboard and pad are additive — both work at once.
 
+Tilt lives on the bumpers (not the right stick) — the user's call 2026-07-08: digital tilt suits a 2D body's discrete "lie the line down" better than an analog axis, and it frees the right thumb during move-and-scan.
+
 | Control | Action | Notes |
 | --- | --- | --- |
 | **Left stick** | Move (forward/strafe, planar) | folds into the same axes as WASD; magnitude ∝ speed |
-| **Right stick X** | Scan yaw | push right = scan right; `PAD_SCAN_SPEED` 2.4 rad/s at full |
-| **Right stick Y** | Scan tilt (roll) | push up = tilt like `↑`; `PAD_ROLL_SPEED` 1.6 rad/s, same ±π/3 clamp |
+| **Right stick X** | Scan yaw | push right = scan right; `PAD_SCAN_SPEED` 2.4 rad/s at full. Right-stick Y is unused |
+| **R1** (btn 5) | Scan tilt up | hold, digital, like `↑`; `PAD_ROLL_SPEED` 1.6 rad/s, ±π/3 clamp |
+| **L1** (btn 4) | Scan tilt down | hold, like `↓` |
+| **L1 + R1** | Reset tilt | edge; both-held cancels the tilt inputs and snaps to 0 |
 | **A** (btn 0) | Start, then jump | edge-detected; `startEdge`/`jumpEdge` |
-| **B** (btn 1) | Reset tilt | edge |
-| **RB / RT** (5 / 7) | Focused ping | edge; modes 1–2 |
-| **LB / LT** (4 / 6) | Focus mode | hold; same ×0.38 turn / ×0.46 move as Shift |
+| **B** (btn 1) | Reset tilt | edge (secondary) |
+| **RT** (btn 7) | Focused ping | edge; modes 1–2 |
+| **LT** (btn 6) | Focus mode | hold; same ×0.38 turn / ×0.46 move as Shift |
 | **Start** (btn 9) | Start | edge |
 
 `PAD_DEADZONE` 0.16 (radial-rescaled per axis). Polled once per frame in `updatePlayer` via `readGamepad()`; `isFocusMode()` ORs the pad focus button with Shift. **Caveat:** a gamepad button counts as a user gesture for `AudioContext` in current Chromium/Firefox, but if a browser refuses, a key/click still starts audio.
