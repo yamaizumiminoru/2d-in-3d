@@ -49,7 +49,7 @@ Slow, readable, orientation-based combat per [07-combat-body-plane](07-combat-bo
 
 ## Phase 5 — Polish & release
 
-Performance pass (the hidden renderer is tiny — likely fine; profile the 2D canvas ops), accessibility pass (photosensitivity check on strip flashes; remappable keys), gamepad support (**this is where "sync movement speed and panning speed" lands** — analog stick movement should scale pan speed per the user's note), itch.io/web packaging (needs Phase 0 vendoring), title/credits copy.
+Performance pass (the hidden renderer is tiny — likely fine; profile the 2D canvas ops), accessibility pass (photosensitivity check on strip flashes; remappable keys), ~~gamepad support~~ (**shipped early 2026-07-08**: dual-analog, left = move / right = scan, analog magnitude scales speed — the "sync movement/panning speed" note; remaining polish = button remapping + rumble-free haptics decision), itch.io/web packaging (needs Phase 0 vendoring), title/credits copy.
 
 ## Standing rules for every phase
 

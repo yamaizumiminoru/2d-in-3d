@@ -21,6 +21,23 @@ Controls, physics, anchors, portal, HUD — with the exact numbers from `prototy
 | `0` / `1` / `2` | Ping mode (decision ②: **hybrid adopted**, default = 2) | 0 = periodic, 1 = on-demand kept as dev comparison; retire before release |
 | `F` / right-click | Focused ping | modes 1–2 only; full 3-ray fan, full range, `FOCUSED_PING_COOLDOWN` 0.35 s |
 
+### Gamepad (standard mapping, added 2026-07-08 — dual analog)
+
+Left stick = move, right stick = scan. Analog magnitude scales speed (partial deflection = slow), which delivers the roadmap's "movement/scan coupling" note for free. Keyboard and pad are additive — both work at once.
+
+| Control | Action | Notes |
+| --- | --- | --- |
+| **Left stick** | Move (forward/strafe, planar) | folds into the same axes as WASD; magnitude ∝ speed |
+| **Right stick X** | Scan yaw | push right = scan right; `PAD_SCAN_SPEED` 2.4 rad/s at full |
+| **Right stick Y** | Scan tilt (roll) | push up = tilt like `↑`; `PAD_ROLL_SPEED` 1.6 rad/s, same ±π/3 clamp |
+| **A** (btn 0) | Start, then jump | edge-detected; `startEdge`/`jumpEdge` |
+| **B** (btn 1) | Reset tilt | edge |
+| **RB / RT** (5 / 7) | Focused ping | edge; modes 1–2 |
+| **LB / LT** (4 / 6) | Focus mode | hold; same ×0.38 turn / ×0.46 move as Shift |
+| **Start** (btn 9) | Start | edge |
+
+`PAD_DEADZONE` 0.16 (radial-rescaled per axis). Polled once per frame in `updatePlayer` via `readGamepad()`; `isFocusMode()` ORs the pad focus button with Shift. **Caveat:** a gamepad button counts as a user gesture for `AudioContext` in current Chromium/Firefox, but if a browser refuses, a key/click still starts audio.
+
 During a reveal (`inputLocked()`): all inputs ignored/cleared except the `3` toggle; held movement keys resume after.
 
 ## Player physics

@@ -30,6 +30,12 @@ const EAR_SEPARATION = 0.6;
 const FOCUSED_PING_COOLDOWN = 0.35;
 const HEARTBEAT_PING_SCALE = 0.22;
 const HEARTBEAT_ECHO_RANGE = 6;
+// Dual-analog gamepad (standard mapping): left stick = move, right stick = scan
+// (X = yaw, Y = tilt). Analog magnitude scales speed — the "movement/scan
+// coupling" the roadmap reserved for analog input arrives here for free.
+const PAD_DEADZONE = 0.16;
+const PAD_SCAN_SPEED = 2.4; // rad/s at full right-stick X deflection
+const PAD_ROLL_SPEED = 1.6; // rad/s at full right-stick Y deflection
 // Default playable bounds; overridden per level by addWorld(level.bounds)
 let BOUNDS = { minRight: -18.5, maxRight: 18.5, minForward: -18.5, maxForward: 18.5 };
 
@@ -102,6 +108,10 @@ const solids = [];
 const pickups = [];
 const beacons = [];
 const animated = [];
+
+// Gamepad state: `focus` mirrors the held focus button; `prev` holds last-frame
+// button states for edge detection. Polled once per frame in updatePlayer.
+const pad = { connected: false, focus: false, prev: { jump: false, reset: false, ping: false, start: false } };
 
 const game = {
   started: false,
@@ -605,7 +615,67 @@ function clearBufferedInput() {
   player.rollVelocity = 0;
 }
 
+function applyDeadzone(value) {
+  if (Math.abs(value) < PAD_DEADZONE) return 0;
+  return (value - Math.sign(value) * PAD_DEADZONE) / (1 - PAD_DEADZONE);
+}
+
+// Poll the first connected gamepad. Returns analog axes (moveY/lookY already
+// inverted so up = forward / up-tilt) plus one-shot button edges. Must be called
+// exactly once per frame — it advances the edge-detection state in `pad`.
+function readGamepad() {
+  const idle = { moveX: 0, moveY: 0, lookX: 0, lookY: 0, jumpEdge: false, pingEdge: false, resetEdge: false, startEdge: false };
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  let gp = null;
+  for (const candidate of pads) {
+    if (candidate) { gp = candidate; break; }
+  }
+  if (!gp) {
+    pad.connected = false;
+    pad.focus = false;
+    return idle;
+  }
+  pad.connected = true;
+
+  const axis = (i) => gp.axes[i] || 0;
+  const held = (i) => Boolean(gp.buttons[i] && gp.buttons[i].pressed);
+
+  const jump = held(0); // A
+  const reset = held(1); // B
+  const ping = held(5) || held(7); // RB / RT
+  const start = held(9); // Start
+  pad.focus = held(4) || held(6); // LB / LT — hold for focus mode
+
+  const result = {
+    moveX: applyDeadzone(axis(0)),
+    moveY: -applyDeadzone(axis(1)),
+    lookX: applyDeadzone(axis(2)),
+    lookY: applyDeadzone(axis(3)),
+    jumpEdge: jump && !pad.prev.jump,
+    pingEdge: ping && !pad.prev.ping,
+    resetEdge: reset && !pad.prev.reset,
+    startEdge: start && !pad.prev.start,
+  };
+  pad.prev.jump = jump;
+  pad.prev.ping = ping;
+  pad.prev.reset = reset;
+  pad.prev.start = start;
+  return result;
+}
+
+function isFocusMode() {
+  return keys.has('ShiftLeft') || keys.has('ShiftRight') || pad.focus;
+}
+
 function updatePlayer(dt) {
+  const gp = readGamepad();
+
+  // A / Start begins the game (a gamepad press is a user gesture for audio in
+  // modern browsers; if not, a key/click still works). Capture wasStarted so the
+  // same A press doesn't also jump on the frame it starts.
+  const wasStarted = game.started;
+  if (!wasStarted && (gp.startEdge || gp.jumpEdge)) begin();
+
   if (inputLocked()) {
     clearBufferedInput();
     dom.reticle.style.setProperty('--scan-roll', `${player.scanRoll}rad`);
@@ -613,25 +683,36 @@ function updatePlayer(dt) {
     return;
   }
 
+  if (wasStarted && gp.jumpEdge) jump();
+  if (gp.pingEdge) fireFocusedPing();
+  if (gp.resetEdge) resetTilt();
+
+  // keyboard is discrete (±1), gamepad is analog; both fold into the same axes
   const scanTurn = (keys.has('ArrowLeft') ? 1 : 0) - (keys.has('ArrowRight') ? 1 : 0);
   const rollInput = (keys.has('ArrowUp') ? 1 : 0) - (keys.has('ArrowDown') ? 1 : 0);
   const forward =
     (keys.has('KeyW') ? 1 : 0) -
-    (keys.has('KeyS') ? 1 : 0);
+    (keys.has('KeyS') ? 1 : 0) +
+    gp.moveY;
   const strafe =
     (keys.has('KeyD') ? 1 : 0) -
-    (keys.has('KeyA') ? 1 : 0);
-  const focus = keys.has('ShiftLeft') || keys.has('ShiftRight');
+    (keys.has('KeyA') ? 1 : 0) +
+    gp.moveX;
+  const focus = isFocusMode();
 
-  const turnSpeed = TURN_SPEED * (focus ? 0.38 : 1);
+  const focusMul = focus ? 0.38 : 1;
   const oldYaw = player.yaw;
-  player.yaw = normalizeAngle(player.yaw + scanTurn * turnSpeed * dt + game.mouseScanDelta * MOUSE_SCAN_SPEED);
+  // right-stick X turns the scan (push right = turn right = subtract yaw)
+  const yawDelta = (scanTurn * TURN_SPEED - gp.lookX * PAD_SCAN_SPEED) * focusMul * dt;
+  player.yaw = normalizeAngle(player.yaw + yawDelta + game.mouseScanDelta * MOUSE_SCAN_SPEED);
   player.angularVelocity = normalizeAngle(player.yaw - oldYaw) / Math.max(dt, 0.001);
   game.mouseScanDelta = 0;
 
   const oldRoll = player.scanRoll;
+  // right-stick Y tilts the scan (push up = tilt like ArrowUp)
+  const rollDelta = (rollInput * ROLL_SPEED - gp.lookY * PAD_ROLL_SPEED) * focusMul * dt;
   player.scanRoll = clamp(
-    player.scanRoll + rollInput * ROLL_SPEED * dt - game.wheelRollDelta * WHEEL_ROLL_SPEED,
+    player.scanRoll + rollDelta - game.wheelRollDelta * WHEEL_ROLL_SPEED,
     -MAX_SCAN_ROLL,
     MAX_SCAN_ROLL,
   );
@@ -1148,7 +1229,7 @@ function drawMentalImage(dt) {
   renderer.render(scene, camera);
 
   const source = renderer.domElement;
-  const focus = keys.has('ShiftLeft') || keys.has('ShiftRight');
+  const focus = isFocusMode();
   const sourceWidth = focus ? 8 : 3;
   const drawWidth = focus ? 18 : 8;
   const sourceX = Math.floor(source.width / 2 - sourceWidth / 2);
@@ -1393,6 +1474,8 @@ async function init() {
   window.addEventListener('keydown', handleKeyDown, { passive: false });
   window.addEventListener('keyup', handleKeyUp);
   window.addEventListener('resize', resize);
+  window.addEventListener('gamepadconnected', () => showMessage('Controller linked. Left stick moves, right stick scans.', 3.4));
+  window.addEventListener('gamepaddisconnected', () => showMessage('Controller unlinked.', 2));
   // Dev hook: read-only state access for debugging/automation. Not part of the game.
   window.coplanar = { player, game, pickups, beacons, solids };
   requestAnimationFrame(loop);

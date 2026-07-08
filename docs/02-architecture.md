@@ -71,7 +71,7 @@ Collections (module-level arrays):
 - `solids` — planar AABBs `{minRight, maxRight, minForward, maxForward}` for collision. Filled by `addSolidBox` and `addColumn` (columns use their bounding square).
 - `pickups` — anchors, **array order = required collection order**; `game.activePickupIndex` points at the only visible/active one.
 - `beacons` — audio emitters `{object, color, baseFreq, isActive(), gainScale, audio?}`; one per anchor plus the portal.
-- `animated` — decorative spinning/bobbing marker boxes (no collision).
+- `animated` — decorative spinning/bobbing marker boxes (no collision). **Dormant since 2026-07-08**: no level supplies `markers` (floating wireframe cubes were removed as clutter); `addMarkerBox`/`updateWorldAnimation` remain for possible later "tethered debris" use.
 
 ## Frame loop (`loop(time)`)
 
@@ -96,6 +96,8 @@ Startup: `init()` (async) → `loadLevel()` (dynamic `import('./levels/levelNN.j
 ## Input model
 
 All handlers are on `window`. `keys` is a `Set` of `event.code`. Buffered mouse deltas (`game.mouseScanDelta`, `game.wheelRollDelta`) are consumed once per frame in `updatePlayer` and zeroed. During `inputLocked()` new keydowns are ignored (but keys already held stay held) and buffered deltas are cleared. Pointer lock is requested on click; **mouse scan works even without pointer lock** (raw `movementX`), which is a known quirk, not a feature to preserve.
+
+**Gamepad** (added 2026-07-08): polled — not event-driven — once per frame by `readGamepad()` at the top of `updatePlayer`, which advances the edge-detection state in the module-level `pad` object. Analog axes fold additively into the same scan/move axes as keyboard; button edges call `begin`/`jump`/`fireFocusedPing`/`resetTilt`. `isFocusMode()` is the single source of truth for focus (Shift OR pad LB/LT), read by both `updatePlayer` and `drawMentalImage`. Constants: `PAD_DEADZONE`, `PAD_SCAN_SPEED`, `PAD_ROLL_SPEED`.
 
 Controls table and exact semantics: [05-gameplay](05-gameplay.md).
 

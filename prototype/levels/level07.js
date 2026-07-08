@@ -29,12 +29,8 @@ export default {
     { right: 7.7, forward: -14, radius: 0.52, height: 3.8, color: 0xffc95a },
   ],
 
-  markers: [
-    { right: -14, forward: -14, up: 1.9, width: 0.35, depth: 0.35, height: 3.1, color: 0x44e7ff, spin: 0.4 },
-    { right: 13.5, forward: -5.7, up: 2.1, width: 0.48, depth: 0.48, height: 2.4, color: 0xffc95a, spin: -0.32 },
-    { right: -13, forward: 14, up: 2.2, width: 0.42, depth: 0.42, height: 2.8, color: 0xff5fd7, spin: 0.27 },
-    { right: 13.7, forward: 15.2, up: 1.8, width: 0.36, depth: 0.36, height: 3.5, color: 0x7dff9a, spin: -0.18 },
-  ],
+  // (floating wireframe markers removed 2026-07-08 — the four columns are
+  //  landmark enough at this room's complexity; addMarkerBox stays dormant.)
 
   pickups: [
     {

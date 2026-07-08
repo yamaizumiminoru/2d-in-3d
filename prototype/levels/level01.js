@@ -14,9 +14,10 @@
 // - One new demand per stage (docs/10-campaign.md); readability rules and the
 //   playtest questions live in docs/08-level-design.md; per-stage palette and
 //   set-piece ideas in docs/14-stage-ideas.md.
-// - `palette` recolors floor/grid only; walls/columns/markers carry their own
-//   colors. Wireframe `markers` are floating landmark debris (not bugs) - tall
-//   silhouettes players re-anchor their mental map to.
+// - `palette` recolors floor/grid only; walls/columns carry their own colors.
+//   Landmarks = tall `columns` at distinct bearings (>=3). The old floating
+//   wireframe `markers` field is still parsed but unused (removed 2026-07-08 as
+//   visual clutter); leave it out unless a stage genuinely needs sky debris.
 // - `compassGranted: true` pre-lights the DIR ribbon (campaign rule: ST1-2 only).
 //   Later stages omit it and hide a `frameShard` instead (see level07.js).
 // - Verify per docs/09-agent-playbook.md: node --check, then an in-browser
@@ -62,9 +63,9 @@ export default {
     { right: 7.5, forward: -2.5, radius: 0.6, height: 3.6, color: 0xffc95a },
   ],
 
-  markers: [
-    { right: 9.8, forward: -8.8, up: 2.0, width: 0.38, depth: 0.38, height: 2.8, color: 0x44e7ff, spin: 0.3 },
-  ],
+  // (no `markers`: floating wireframe debris was removed 2026-07-08 — at this room
+  //  complexity the columns already give enough landmarks, and the compass covers
+  //  bearing. The addMarkerBox engine path stays dormant for possible later use.)
 
   pickups: [
     {
