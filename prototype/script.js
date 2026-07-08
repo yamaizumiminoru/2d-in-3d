@@ -660,10 +660,10 @@ function readGamepad() {
   const axis = (i) => gp.axes[i] || 0;
   const held = (i) => Boolean(gp.buttons[i] && gp.buttons[i].pressed);
 
-  const jump = held(0); // A
-  const reset = held(1); // B — explicit tilt reset
-  const ping = held(11) || held(2); // R3 (click scan stick) or X — focused ping
-  const focusToggle = held(10) || held(3); // L3 or Y — toggle focus mode
+  const jump = held(0); // A (bottom face)
+  const reset = held(1); // B (right face) — explicit tilt reset
+  const ping = held(11) || held(2); // R3 (click scan stick) or left face — focused ping
+  const focusToggle = held(3); // top face button — toggle wide scan (focus)
   const start = held(9); // Start
 
   // Shoulders hold a tilt notch: R1/R2 clockwise, L1/L2 counter-clockwise.
@@ -676,11 +676,18 @@ function readGamepad() {
   const tiltActive = rNotch > 0 || lNotch > 0;
   const tiltTarget = (TILT_NOTCH_DEG[rNotch] - TILT_NOTCH_DEG[lNotch]) * (Math.PI / 180);
 
-  if (focusToggle && !pad.prev.focusToggle) pad.focus = !pad.focus;
+  if (focusToggle && !pad.prev.focusToggle) {
+    pad.focus = !pad.focus;
+    showMessage(pad.focus ? 'Wide scan — sweep to see the whole room.' : 'Wide scan off.', 2);
+  }
+
+  // Movement = left stick + D-pad (buttons 12-15), both fold into the same axes
+  const dx = (held(15) ? 1 : 0) - (held(14) ? 1 : 0);
+  const dy = (held(12) ? 1 : 0) - (held(13) ? 1 : 0);
 
   const result = {
-    moveX: applyDeadzone(axis(0)),
-    moveY: -applyDeadzone(axis(1)),
+    moveX: clamp(applyDeadzone(axis(0)) + dx, -1, 1),
+    moveY: clamp(-applyDeadzone(axis(1)) + dy, -1, 1),
     lookX: applyDeadzone(axis(2)),
     tiltActive,
     tiltTarget,
@@ -1519,7 +1526,8 @@ async function init() {
   window.addEventListener('gamepadconnected', () => showMessage('Controller linked. Left stick moves, right stick scans.', 3.4));
   window.addEventListener('gamepaddisconnected', () => showMessage('Controller unlinked.', 2));
   // Dev hook: read-only state access for debugging/automation. Not part of the game.
-  window.coplanar = { player, game, pickups, beacons, solids };
+  // `rawPad()` returns the live gamepad (axes/buttons) for diagnosing controller mapping.
+  window.coplanar = { player, game, pickups, beacons, solids, rawPad: () => (navigator.getGamepads ? navigator.getGamepads()[0] : null) };
   requestAnimationFrame(loop);
 }
 

@@ -27,14 +27,14 @@ Left stick = move, right stick X = scan yaw (analog magnitude scales speed — t
 
 | Control | Action | Notes |
 | --- | --- | --- |
-| **Left stick** | Move (forward/strafe, planar) | folds into the same axes as WASD; magnitude ∝ speed |
+| **Left stick** / **D-pad** | Move (forward/strafe, planar) | left stick = axes 0/1 (analog); D-pad = buttons 12–15 (digital, added 2026-07-08); both fold into the WASD axes |
 | **Right stick X** | Scan yaw | push right = scan right; `PAD_SCAN_SPEED` 2.4 rad/s at full. Right-stick Y unused |
 | **R1** / **R2** / **R1+R2** | Tilt +30° / +45° / +60° (clockwise), hold | spring-hold; release → 0. `TILT_NOTCH_DEG` |
 | **L1** / **L2** / **L1+L2** | Tilt −30° / −45° / −60° (counter-clockwise), hold | mirror of the right shoulder |
 | **A** (btn 0) | Start, then jump | edge |
 | **B** (btn 1) | Reset tilt (→0) | edge; redundant with release, kept for parity |
-| **R3** (stick click) / **X** | Focused ping | edge; modes 1–2; click the scan stick to "listen" |
-| **L3** (stick click) / **Y** | Focus mode | **toggle** (tap on/off) so no thumb stays pinned; ORs with Shift |
+| **R3** (stick click) / left face | Focused ping | edge; modes 1–2; click the scan stick to "listen" |
+| **Top face button** (Y/△/X, btn 3) | Wide scan (focus) | **toggle** — tap to widen the live strip, sweep to see the whole room, tap to exit; ORs with Shift |
 | **Start** (btn 9) | Start | edge |
 
 `PAD_DEADZONE` 0.16 (sticks, radial-rescaled). Polled once per frame in `updatePlayer` via `readGamepad()`. Tilt is detented (`0/±30/±45/±60`) and `scanRoll` springs toward the target (`TILT_SPRING` 13 → ~0.15 s). **Caveat:** a gamepad button counts as a user gesture for `AudioContext` in current Chromium/Firefox, but if a browser refuses, a key/click still starts audio.
