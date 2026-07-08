@@ -121,7 +121,7 @@ const pad = {
   connected: false,
   focus: false,
   tiltWasHeld: false,
-  prev: { jump: false, reset: false, ping: false, start: false, focusToggle: false },
+  prev: { jump: false, ping: false, start: false, focusToggle: false },
 };
 
 const game = {
@@ -645,7 +645,7 @@ function applyDeadzone(value) {
 // inverted so up = forward / up-tilt) plus one-shot button edges. Must be called
 // exactly once per frame — it advances the edge-detection state in `pad`.
 function readGamepad() {
-  const idle = { moveX: 0, moveY: 0, lookX: 0, tiltActive: false, tiltTarget: 0, jumpEdge: false, pingEdge: false, resetEdge: false, startEdge: false };
+  const idle = { moveX: 0, moveY: 0, lookX: 0, tiltActive: false, tiltTarget: 0, jumpEdge: false, pingEdge: false, startEdge: false };
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   let gp = null;
   for (const candidate of pads) {
@@ -661,7 +661,6 @@ function readGamepad() {
   const held = (i) => Boolean(gp.buttons[i] && gp.buttons[i].pressed);
 
   const jump = held(0); // A (bottom face)
-  const reset = held(1); // B (right face) — explicit tilt reset
   const ping = held(11) || held(2); // R3 (click scan stick) or left face — focused ping
   const focusToggle = held(3); // top face button — toggle wide scan (focus)
   const start = held(9); // Start
@@ -693,12 +692,10 @@ function readGamepad() {
     tiltTarget,
     jumpEdge: jump && !pad.prev.jump,
     pingEdge: ping && !pad.prev.ping,
-    resetEdge: reset && !pad.prev.reset,
     startEdge: start && !pad.prev.start,
   };
   pad.prev.jump = jump;
   pad.prev.ping = ping;
-  pad.prev.reset = reset;
   pad.prev.start = start;
   pad.prev.focusToggle = focusToggle;
   return result;
@@ -726,7 +723,6 @@ function updatePlayer(dt) {
 
   if (wasStarted && gp.jumpEdge) jump();
   if (gp.pingEdge) fireFocusedPing();
-  if (gp.resetEdge) resetTilt();
 
   // keyboard is discrete (±1), gamepad is analog; both fold into the same axes
   const scanTurn = (keys.has('ArrowLeft') ? 1 : 0) - (keys.has('ArrowRight') ? 1 : 0);

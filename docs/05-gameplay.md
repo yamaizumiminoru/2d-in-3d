@@ -32,7 +32,6 @@ Left stick = move, right stick X = scan yaw (analog magnitude scales speed — t
 | **R1** / **R2** / **R1+R2** | Tilt +30° / +45° / +60° (clockwise), hold | spring-hold; release → 0. `TILT_NOTCH_DEG` |
 | **L1** / **L2** / **L1+L2** | Tilt −30° / −45° / −60° (counter-clockwise), hold | mirror of the right shoulder |
 | **A** (btn 0) | Start, then jump | edge |
-| **B** (btn 1) | Reset tilt (→0) | edge; redundant with release, kept for parity |
 | **R3** (stick click) / left face | Focused ping | edge; modes 1–2; click the scan stick to "listen" |
 | **Top face button** (Y/△/X, btn 3) | Wide scan (focus) | **toggle** — tap to widen the live strip, sweep to see the whole room, tap to exit; ORs with Shift |
 | **Start** (btn 9) | Start | edge |
@@ -45,7 +44,9 @@ During a reveal (`inputLocked()`): all inputs ignored/cleared except the `3` tog
 
 Tilt went from free continuous (±60°, any angle) to **discrete notches** `0/±30/±45/±60` that `scanRoll` springs toward. Two device idioms, same grid:
 - **Gamepad = spring-hold:** hold a shoulder for a notch, release returns to vertical. The "peek" model (line hangs vertical; leaning is effort) fixes tilt disorientation and needs no analog trigger (Switch-safe). *Recommended controller.*
-- **Keyboard/wheel = tap-step persistent:** ↑/↓ (or wheel) step one notch and it stays; ↑+↓ resets. Solves the "60→45" problem trivially (one ↓ tap) — the puzzle only existed if you forced keyboard to spring with one key per direction.
+- **Keyboard/wheel = tap-step persistent:** ↑/↓ (or wheel) step one notch and it stays; ↑+↓ (or middle-click) resets to vertical. Solves the "60→45" problem trivially (one ↓ tap) — the puzzle only existed if you forced keyboard to spring with one key per direction.
+
+**Explicit tilt reset is keyboard/mouse only** (↑+↓ / middle-click) — the gamepad has no reset button because releasing the shoulder already springs to vertical (you can never be stuck tilted on a pad). Removed the redundant B binding 2026-07-08.
 
 **Level-design consequence (important):** intermediate angles now come in 15° notches. The grain tolerance (±6.9°) means notches cover the specced targets (40°→45°, 35°→30°), and **counter-tilt banks (ST6) and grain-anchor angles should be authored on the 30/45/60 grid** so they're reachable. Stereo direction-finding (ST8/ST11) now has 3 magnitude steps rather than a smooth sweep — validate on hardware; if a stage truly needs continuous tilt, that's a per-stage exception to raise with the user. The 90° unlock (ST11) will add a 90° notch. Old free-tilt is gone (in git history); `TILT_STEPS`/`TILT_NOTCH_DEG`/`TILT_SPRING` are the tunables.
 
