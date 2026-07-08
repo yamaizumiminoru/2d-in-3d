@@ -114,14 +114,12 @@ const pickups = [];
 const beacons = [];
 const animated = [];
 
-// Gamepad state: `focus` is a toggle (flipped on the focus button's edge);
-// `tiltWasHeld` tracks the spring-release edge; `prev` holds last-frame button
-// states for edge detection. Polled once per frame in updatePlayer.
+// Gamepad state: `tiltWasHeld` tracks the spring-release edge; `prev` holds
+// last-frame button states for edge detection. Polled once per frame.
 const pad = {
   connected: false,
-  focus: false,
   tiltWasHeld: false,
-  prev: { jump: false, ping: false, start: false, focusToggle: false },
+  prev: { jump: false, ping: false, start: false },
 };
 
 const game = {
@@ -662,7 +660,6 @@ function readGamepad() {
 
   const jump = held(0); // A (bottom face)
   const ping = held(11) || held(2); // R3 (click scan stick) or left face — focused ping
-  const focusToggle = held(3); // top face button — toggle wide scan (focus)
   const start = held(9); // Start
 
   // Shoulders hold a tilt notch: R1/R2 clockwise, L1/L2 counter-clockwise.
@@ -674,11 +671,6 @@ function readGamepad() {
   const lNotch = (l1 && l2) ? 3 : l2 ? 2 : l1 ? 1 : 0;
   const tiltActive = rNotch > 0 || lNotch > 0;
   const tiltTarget = (TILT_NOTCH_DEG[rNotch] - TILT_NOTCH_DEG[lNotch]) * (Math.PI / 180);
-
-  if (focusToggle && !pad.prev.focusToggle) {
-    pad.focus = !pad.focus;
-    showMessage(pad.focus ? 'Wide scan — sweep to see the whole room.' : 'Wide scan off.', 2);
-  }
 
   // Movement = left stick + D-pad (buttons 12-15), both fold into the same axes
   const dx = (held(15) ? 1 : 0) - (held(14) ? 1 : 0);
@@ -697,12 +689,7 @@ function readGamepad() {
   pad.prev.jump = jump;
   pad.prev.ping = ping;
   pad.prev.start = start;
-  pad.prev.focusToggle = focusToggle;
   return result;
-}
-
-function isFocusMode() {
-  return keys.has('ShiftLeft') || keys.has('ShiftRight') || pad.focus;
 }
 
 function updatePlayer(dt) {
@@ -734,12 +721,9 @@ function updatePlayer(dt) {
     (keys.has('KeyD') ? 1 : 0) -
     (keys.has('KeyA') ? 1 : 0) +
     gp.moveX;
-  const focus = isFocusMode();
-
-  const focusMul = focus ? 0.38 : 1;
   const oldYaw = player.yaw;
   // right-stick X turns the scan (push right = turn right = subtract yaw)
-  const yawDelta = (scanTurn * TURN_SPEED - gp.lookX * PAD_SCAN_SPEED) * focusMul * dt;
+  const yawDelta = (scanTurn * TURN_SPEED - gp.lookX * PAD_SCAN_SPEED) * dt;
   player.yaw = normalizeAngle(player.yaw + yawDelta + game.mouseScanDelta * MOUSE_SCAN_SPEED);
   player.angularVelocity = normalizeAngle(player.yaw - oldYaw) / Math.max(dt, 0.001);
   game.mouseScanDelta = 0;
@@ -780,8 +764,7 @@ function updatePlayer(dt) {
   if (movement.lengthSq() > 1) movement.normalize();
   const triedToMove = movement.lengthSq() > 0;
   if (movement.lengthSq() > 0) {
-    const speed = MOVE_SPEED * (focus ? 0.46 : 1);
-    player.position.addScaledVector(movement, speed * dt);
+    player.position.addScaledVector(movement, MOVE_SPEED * dt);
     game.pulse = Math.max(game.pulse, 0.08);
   }
 
@@ -1271,9 +1254,8 @@ function drawMentalImage(dt) {
   renderer.render(scene, camera);
 
   const source = renderer.domElement;
-  const focus = isFocusMode();
-  const sourceWidth = focus ? 8 : 3;
-  const drawWidth = focus ? 18 : 8;
+  const sourceWidth = 3;
+  const drawWidth = 8;
   const sourceX = Math.floor(source.width / 2 - sourceWidth / 2);
 
   mentalCtx.globalCompositeOperation = 'source-over';
@@ -1380,7 +1362,7 @@ function handleKeyDown(event) {
   }
 
   if (inputLocked()) {
-    if (event.code === 'Space' || event.code.startsWith('Arrow') || event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+    if (event.code === 'Space' || event.code.startsWith('Arrow')) {
       event.preventDefault();
     }
     return;
@@ -1388,12 +1370,7 @@ function handleKeyDown(event) {
 
   keys.add(event.code);
 
-  if (
-    event.code === 'Space' ||
-    event.code.startsWith('Arrow') ||
-    event.code === 'ShiftLeft' ||
-    event.code === 'ShiftRight'
-  ) {
+  if (event.code === 'Space' || event.code.startsWith('Arrow')) {
     event.preventDefault();
   }
 
@@ -1521,9 +1498,19 @@ async function init() {
   window.addEventListener('resize', resize);
   window.addEventListener('gamepadconnected', () => showMessage('Controller linked. Left stick moves, right stick scans.', 3.4));
   window.addEventListener('gamepaddisconnected', () => showMessage('Controller unlinked.', 2));
+  // Silence audio while the tab is hidden; resume when it returns (never leave sound running in the background)
+  document.addEventListener('visibilitychange', () => {
+    if (!audioCtx) return;
+    if (document.hidden) audioCtx.suspend();
+    else if (game.started) audioCtx.resume();
+  });
   // Dev hook: read-only state access for debugging/automation. Not part of the game.
   // `rawPad()` returns the live gamepad (axes/buttons) for diagnosing controller mapping.
-  window.coplanar = { player, game, pickups, beacons, solids, rawPad: () => (navigator.getGamepads ? navigator.getGamepads()[0] : null) };
+  window.coplanar = {
+    player, game, pickups, beacons, solids,
+    rawPad: () => (navigator.getGamepads ? navigator.getGamepads()[0] : null),
+    audioState: () => (audioCtx ? audioCtx.state : 'none'),
+  };
   requestAnimationFrame(loop);
 }
 

@@ -16,7 +16,6 @@ Controls, physics, anchors, portal, HUD — with the exact numbers from `prototy
 | `Space` | Start, then jump | `JUMP_SPEED` 6.2, `GRAVITY` 17.5 ⇒ apex ≈ **1.10 u** at ~0.35 s, airtime ~0.71 s |
 | Left click | Start, then jump | also requests pointer lock |
 | `Enter` | Start | |
-| `Shift` | Focus mode | turn ×0.38, move ×0.46, live strip ~2.7× wider |
 | `3` | Toggle DEV 3D | debug only; works even during reveal |
 | `0` / `1` / `2` | Ping mode (decision ②: **hybrid adopted**, default = 2) | 0 = periodic, 1 = on-demand kept as dev comparison; retire before release |
 | `F` / right-click | Focused ping | modes 1–2 only; full 3-ray fan, full range, `FOCUSED_PING_COOLDOWN` 0.35 s |
@@ -33,7 +32,6 @@ Left stick = move, right stick X = scan yaw (analog magnitude scales speed — t
 | **L1** / **L2** / **L1+L2** | Tilt −30° / −45° / −60° (counter-clockwise), hold | mirror of the right shoulder |
 | **A** (btn 0) | Start, then jump | edge |
 | **R3** (stick click) / left face | Focused ping | edge; modes 1–2; click the scan stick to "listen" |
-| **Top face button** (Y/△/X, btn 3) | Wide scan (focus) | **toggle** — tap to widen the live strip, sweep to see the whole room, tap to exit; ORs with Shift |
 | **Start** (btn 9) | Start | edge |
 
 `PAD_DEADZONE` 0.16 (sticks, radial-rescaled). Polled once per frame in `updatePlayer` via `readGamepad()`. Tilt is detented (`0/±30/±45/±60`) and `scanRoll` springs toward the target (`TILT_SPRING` 13 → ~0.15 s). **Caveat:** a gamepad button counts as a user gesture for `AudioContext` in current Chromium/Firefox, but if a browser refuses, a key/click still starts audio.

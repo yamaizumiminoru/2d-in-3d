@@ -18,7 +18,7 @@ Order matters; this sequence produces the afterimage feel:
 2. **Decay**: a translucent black rect, alpha `0.03 + clamp(drift * 0.005, 0, 0.03)` where `drift = hypot(angularVelocity, rollVelocity * 0.75)`. Faster scanning ⇒ faster forgetting (motion smears memory).
 3. **Branch — DEV 3D** (`game.devView`): `drawFull3D(width, height)` draws the full scene over everything, opaque. Return.
 4. **Branch — Reveal** (`game.revealTimer > 0`): full 3D at alpha `0.18 + (timer/REVEAL_DURATION) * 0.62`, plus a green wash. The strip below still draws — the reveal *overlays* perception, then evaporates back into it. ⚠️ The timer is decremented in `loop()`, **not** here — it used to live in this branch, which DEV 3D's early return never reached, freezing the game forever after an in-dev-view collect (fixed 2026-07-07). Keep timers in the loop, not in draw paths.
-5. **Live strip**: render scene into the hidden 96 px renderer; blit source columns `[center − w/2, center + w/2]` where `w = 3` (normal) or `8` (focus/Shift) into a screen column `8 px` (normal) or `18 px` (focus) wide, at alpha 0.86, rotated by `player.scanRoll` about screen center.
+5. **Live strip**: render scene into the hidden 96 px renderer; blit the center 3 source columns into an 8 px screen column at center, alpha 0.86, rotated by `player.scanRoll`. (Fixed width since 2026-07-08 — the old focus/"Wide scan" mode that widened this to 8→18 px was removed; a wider live slice undercut the 1D-perception thesis.)
 6. **Pulse tint**: if `game.pulse > 0.01`, a cyan rect over the strip (composite `source-atop`, alpha `pulse * 0.12`), decaying as `pulse *= 0.08^dt`.
 7. **Orientation tick**: 1×18 px white mark near the bottom of the strip, rotated with the roll — the only always-on cue for which way "down" is along the scan.
 
@@ -27,7 +27,7 @@ Order matters; this sequence produces the afterimage feel:
 - Camera: vertical FOV 48°, aspect `96/height` ⇒ horizontal FOV ≈ **4.5°** at 1080 p. The blitted 3-px core covers ≈ **0.14°** — the live view is effectively a 1D line, as the fiction demands.
 - Panorama scale: 390 px/rad ⇒ a 1920-px-wide window holds ≈ 4.92 rad ≈ **282° of remembered world**. On narrow windows the memory horizon shrinks proportionally (a real difficulty knob).
 - The panorama scale is **deliberately not matched** to the strip's true angular scale (which would be ~3200 px/rad). This mismatch compresses the world into the screen and is part of the tuned feel — don't "correct" it for physical accuracy without the user asking.
-- Focus mode (Shift) widens the live slice ~2.7× and slows turn speed to 0.38× / movement to 0.46× — trading mobility for bandwidth, consistent with pillar 4's "perception costs something".
+- (Removed 2026-07-08: a "focus / Wide scan" mode widened the live slice ~2.7× and slowed movement. The user cut it — "sweep and see everything" trivialized the perception challenge and pulled the game toward normal vision. If a "perception costs something" affordance is wanted later, prefer one that *narrows* or *dims*, not one that widens.)
 
 ## Invariants (violating any of these breaks the game's identity)
 
@@ -52,7 +52,7 @@ Order matters; this sequence produces the afterimage feel:
 | `TILT_STEPS` / `TILT_NOTCH_DEG` | ±30/45/60° | Tilt notch grid (decision ⑦; keyboard tap-steps, pad holds) |
 | `TILT_SPRING` | 13 (1/s) | How fast `scanRoll` eases to its notch (~0.15 s) |
 | `MAX_SCAN_ROLL` | π/3 | Tilt clamp / top notch |
-| strip widths (in `drawMentalImage`) | 3→8 px, 8→18 px | More live information (design-sensitive; pillar 2) |
+| strip widths (in `drawMentalImage`) | 3 px source → 8 px draw (fixed) | Wider = more live info but dilutes the 1D thesis (the focus-widen mode was cut) |
 | decay alphas (step 2) | 0.03 + 0.03 | Faster forgetting |
 
 ## Rules for changing this file's domain
