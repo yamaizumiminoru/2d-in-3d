@@ -32,10 +32,10 @@ const HEARTBEAT_PING_SCALE = 0.22;
 const HEARTBEAT_ECHO_RANGE = 6;
 // Gamepad (standard mapping): left stick = move, right stick X = scan yaw
 // (analog magnitude scales pan speed — the roadmap's movement/scan coupling),
-// R1/L1 = scan tilt up/down (digital, like the arrow keys), L1+R1 = reset tilt.
+// L2/R2 analog triggers = scan tilt down/up (press depth = speed), B = reset.
 const PAD_DEADZONE = 0.16;
 const PAD_SCAN_SPEED = 2.4; // rad/s at full right-stick X deflection
-const PAD_ROLL_SPEED = 1.6; // rad/s while an R1/L1 bumper is held
+const PAD_ROLL_SPEED = 1.6; // rad/s at full L2/R2 trigger depth
 // Default playable bounds; overridden per level by addWorld(level.bounds)
 let BOUNDS = { minRight: -18.5, maxRight: 18.5, minForward: -18.5, maxForward: 18.5 };
 
@@ -624,7 +624,7 @@ function applyDeadzone(value) {
 // inverted so up = forward / up-tilt) plus one-shot button edges. Must be called
 // exactly once per frame — it advances the edge-detection state in `pad`.
 function readGamepad() {
-  const idle = { moveX: 0, moveY: 0, lookX: 0, rollBumper: 0, jumpEdge: false, pingEdge: false, resetEdge: false, startEdge: false };
+  const idle = { moveX: 0, moveY: 0, lookX: 0, roll: 0, jumpEdge: false, pingEdge: false, resetEdge: false, startEdge: false };
   const pads = navigator.getGamepads ? navigator.getGamepads() : [];
   let gp = null;
   for (const candidate of pads) {
@@ -639,25 +639,23 @@ function readGamepad() {
 
   const axis = (i) => gp.axes[i] || 0;
   const held = (i) => Boolean(gp.buttons[i] && gp.buttons[i].pressed);
+  const analog = (i) => (gp.buttons[i] ? gp.buttons[i].value || 0 : 0);
+  const trigger = (v) => (v < 0.06 ? 0 : v); // triggers rest at 0; ignore noise
 
   const jump = held(0); // A
-  const bReset = held(1); // B — secondary tilt reset
-  const l1 = held(4); // LB — tilt down
-  const r1 = held(5); // RB — tilt up
-  const bothBumpers = l1 && r1; // L1+R1 — reset tilt
-  const ping = held(7); // RT — focused ping
+  const reset = held(1); // B — reset tilt
+  const ping = held(5); // R1 — focused ping
   const start = held(9); // Start
-  pad.focus = held(6); // LT — hold for focus mode
+  pad.focus = held(4); // L1 — hold for focus mode
 
-  // bumpers tilt the scan (R1 up / L1 down); pressing both resets instead of fighting
-  const rollBumper = bothBumpers ? 0 : (r1 ? 1 : 0) - (l1 ? 1 : 0);
-  const reset = bReset || bothBumpers;
+  // L2/R2 analog triggers tilt the scan: press depth = tilt speed (R2 up / L2 down)
+  const roll = trigger(analog(7)) - trigger(analog(6));
 
   const result = {
     moveX: applyDeadzone(axis(0)),
     moveY: -applyDeadzone(axis(1)),
     lookX: applyDeadzone(axis(2)),
-    rollBumper,
+    roll,
     jumpEdge: jump && !pad.prev.jump,
     pingEdge: ping && !pad.prev.ping,
     resetEdge: reset && !pad.prev.reset,
@@ -716,8 +714,8 @@ function updatePlayer(dt) {
   game.mouseScanDelta = 0;
 
   const oldRoll = player.scanRoll;
-  // R1 tilts up, L1 tilts down (digital, like the arrow keys); L1+R1 resets above
-  const rollDelta = (rollInput * ROLL_SPEED + gp.rollBumper * PAD_ROLL_SPEED) * focusMul * dt;
+  // R2 tilts up, L2 tilts down — analog trigger depth scales the tilt speed
+  const rollDelta = (rollInput * ROLL_SPEED + gp.roll * PAD_ROLL_SPEED) * focusMul * dt;
   player.scanRoll = clamp(
     player.scanRoll + rollDelta - game.wheelRollDelta * WHEEL_ROLL_SPEED,
     -MAX_SCAN_ROLL,
