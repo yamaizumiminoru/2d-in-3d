@@ -449,6 +449,7 @@ function addWorld(level) {
   addFloor(level.palette ?? {});
 
   if (level.bounds) BOUNDS = { ...level.bounds };
+  if (level.compassGranted) game.compassFound = true; // early stages pre-grant DIR (campaign rule: ST1-2)
   for (const box of level.walls ?? []) addSolidBox(box);
   for (const column of level.columns ?? []) addColumn(column.right, column.forward, column.radius, column.height, column.color);
   for (const marker of level.markers ?? []) addMarkerBox(marker);

@@ -39,7 +39,7 @@ Anchors (`pickups`) are collected **strictly in array order**; only the active o
 
 `isPlayerOnPickupApproachSide`: if `approachYaw` set, the player's bearing *from the anchor* (`yawFromBasisDelta` — mirrored convention, see [02-architecture](02-architecture.md) gotcha) must be within ±`approachArc` of `approachYaw`. Wrong side ⇒ hint "This anchor has a face. Slip in from the lit side." (rate-limited 1.8 s).
 
-### Current five anchors (in `addWorld()`)
+### The reference room's five anchors (`levels/level07.js` — the Scattered Hall, play via `?level=7`; the default `?level=1` is ST1 "The Waking Room" with 3 still anchors)
 
 | # | Type | Position (right, forward, up) | Motion | Gate | baseFreq | Color |
 | --- | --- | --- | --- | --- | --- | --- |

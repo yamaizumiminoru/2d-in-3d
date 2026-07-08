@@ -14,7 +14,7 @@ Ground truth as of 2026-07-06. `prototype/script.js` is ~1200 lines, single file
 | --- | --- |
 | `prototype/index.html` | HUD markup + all CSS, start veil, reticle overlay, `#mental-canvas`, import map |
 | `prototype/script.js` | Engine: world building, input, physics, perception rendering, audio, game state |
-| `prototype/levels/levelNN.js` | **Level data modules** (plain objects: playerStart, bounds, walls, columns, markers, pickups, frameShard, portal, optional `palette` — floor / floorEmissive / floorGlow / grid1 / grid2, defaults = canonical bright floor). Selected by `?level=N` URL param (default 1, bad ids fall back to 01 with a console warning). Colors are raw hex so level files stay self-contained |
+| `prototype/levels/levelNN.js` | **Level data modules** (plain objects: playerStart, bounds, walls, columns, markers, pickups, frameShard, portal, optional `palette` — floor / floorEmissive / floorGlow / grid1 / grid2 — and optional `compassGranted` for ST1–2). **File numbers = campaign stage numbers**: level01 = ST1 "The Waking Room" (default; also the annotated authoring template), level07 = the Scattered Hall reference room. `?level=N`, bad ids fall back to 01 with a console warning. Colors are raw hex so level files stay self-contained |
 | `prototype/modules/math/WorldBasis.js` | Coordinate-basis abstraction (from GameBlocks, MIT) |
 | `prototype/gameblocks_usage.md` | Notes on the borrowed abstraction |
 | `prototype/third_party/GameBlocks_LICENSE.txt` | License |

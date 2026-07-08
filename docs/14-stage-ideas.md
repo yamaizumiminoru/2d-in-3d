@@ -16,6 +16,8 @@ Requested by the user 2026-07-08. For every stage: **(a)** palette/atmosphere (f
 
 ## ST1 目覚めの間 / The Waking Room
 
+> **Built 2026-07-08 as `prototype/levels/level01.js`** — the campaign's first playable stage and the annotated authoring template other agents copy. Ideas ① and ③ below are pending content passes (breadcrumb decor, hum-before-heartbeat scripting).
+
 - **(a)** Near-monochrome cold cyan; canonical bright floor at its palest; sparse grid. Emotionally the darkest palette — waking in nothing.
 - **(b)** ① Anchor 1's hum starts *before* the first heartbeat ping — you walk toward sound before you understand sight. ② A stretch of pure darkness that reads as a wall but answers "empty" by echo — the first lesson that black ≠ solid. ③ One landmark contains a **broken frame corner** embedded in a wall (decorative wood — story breadcrumb, non-collectible). ④ The portal dimly visible from spawn: goal grammar taught by sight, not text.
 - **(c)** The emptiest soundscape in the game: heartbeat + one hum + bump. Every later stage is richer — ST1 is the baseline the ear will measure everything against.

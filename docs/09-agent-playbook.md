@@ -14,7 +14,7 @@ python -m http.server 4173 --directory prototype
 ```
 
 - Three.js is vendored (`prototype/third_party/three/`) — no internet needed. If the page is black, check the browser console for an import-map path error first.
-- Levels load from `prototype/levels/levelNN.js` via `?level=N` (default 1; bad ids fall back to 01 with a console warning).
+- Levels load from `prototype/levels/levelNN.js` via `?level=N` (default 1; bad ids fall back to 01 with a console warning). **File numbers = campaign stage numbers.** `level01` = ST1 (3 anchors, the annotated authoring template — copy it for new stages); `level07` = the Scattered Hall (the 5-anchor reference room the smoke test below describes — run it via `?level=7`).
 - Port 4173 may already be held by a long-lived server from an earlier session that serves this same folder live; reuse it, or use another port (e.g. 4174 — see `.claude/launch.json`, which Claude's preview tooling uses).
 
 ## Verification ladder (run bottom-up as far as your change warrants)

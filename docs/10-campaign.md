@@ -139,7 +139,7 @@ Confirmed with the user 2026-07-07: the game is **stage-clear (面クリア式)*
 
 ## Build order (≠ story order)
 
-1. **Level loader** + ST1 (validates the loader on the simplest content) — Phase 1 refactor.
+1. ✅ **Level loader** (2026-07-07) + **ST1 built** (2026-07-08, `levels/level01.js` — also the annotated authoring template; ST7's room moved to `levels/level07.js`, file numbers = stage numbers).
 2. ST2, ST3 (recombinations of existing mechanics — cheap wins; ST2's banked corridor needs the A8 groundRoll plumbing).
 3. ST4, ST5 (existing tech + TS-A's grain system, new layouts).
 4. ST6 (TS-H — groundRoll + grain, both already built by now).
