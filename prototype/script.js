@@ -159,6 +159,7 @@ const game = {
   mouseScanDelta: 0,
   revealTimer: 0,
   devView: false,
+  hairline: false,
   activePickupIndex: 0,
   lastAnchorHint: -Infinity,
   lastPortalHint: -Infinity,
@@ -1281,8 +1282,9 @@ function drawMentalImage(dt) {
   renderer.render(scene, camera);
 
   const source = renderer.domElement;
-  const sourceWidth = 3;
-  const drawWidth = 8;
+  // hairline experiment (key 4): a true 1 px slice instead of the normal 3->8 px
+  const sourceWidth = game.hairline ? 1 : 3;
+  const drawWidth = game.hairline ? 1 : 8;
   const sourceX = Math.floor(source.width / 2 - sourceWidth / 2);
 
   mentalCtx.globalCompositeOperation = 'source-over';
@@ -1381,6 +1383,13 @@ function handleKeyDown(event) {
     event.preventDefault();
     game.devView = !game.devView;
     showMessage(game.devView ? 'Developer 3D view enabled.' : 'Developer 3D view disabled.', 1.8);
+    return;
+  }
+
+  if (event.code === 'Digit4') {
+    event.preventDefault();
+    game.hairline = !game.hairline;
+    showMessage(game.hairline ? 'Hairline scan — one pixel of world.' : 'Hairline scan off.', 2);
     return;
   }
 
