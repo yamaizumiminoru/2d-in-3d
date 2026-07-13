@@ -114,7 +114,12 @@ const copyCtx = copyCanvas.getContext('2d', { alpha: false });
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(48, SENSOR_RENDER_WIDTH / window.innerHeight, 0.03, 90);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+// pixelRatio stays 1: resize() sizes every surface in device pixels explicitly,
+// so the mental canvas (and the hairline scan) maps 1:1 to physical pixels.
+renderer.setPixelRatio(1);
+let dpr = 1;
+let sensorWidth = SENSOR_RENDER_WIDTH;
+let sensorHeight = Math.max(240, window.innerHeight);
 renderer.setClearColor(COLORS.dark, 1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1245,8 +1250,8 @@ function drawFull3D(width, height, alpha = 1) {
   mentalCtx.drawImage(renderer.domElement, 0, 0, width, height);
   mentalCtx.globalAlpha = 1;
 
-  renderer.setSize(SENSOR_RENDER_WIDTH, height, false);
-  camera.aspect = SENSOR_RENDER_WIDTH / height;
+  renderer.setSize(sensorWidth, sensorHeight, false);
+  camera.aspect = sensorWidth / sensorHeight;
   camera.updateProjectionMatrix();
 }
 
@@ -1254,7 +1259,7 @@ function drawMentalImage(dt) {
   const width = dom.mentalCanvas.width;
   const height = dom.mentalCanvas.height;
   const yawDelta = normalizeAngle(player.yaw - player.lastYaw);
-  const shift = yawDelta * PANORAMA_PIXELS_PER_RADIAN;
+  const shift = yawDelta * PANORAMA_PIXELS_PER_RADIAN * dpr; // constant is CSS-px per radian
 
   copyCtx.fillStyle = '#020304';
   copyCtx.fillRect(0, 0, width, height);
@@ -1282,17 +1287,19 @@ function drawMentalImage(dt) {
   renderer.render(scene, camera);
 
   const source = renderer.domElement;
-  // hairline experiment (key 4): a true 1 px slice instead of the normal 3->8 px
+  // hairline experiment (key 4): a true 1-device-px slice instead of the normal 3->8 CSS px
   const sourceWidth = game.hairline ? 1 : 3;
-  const drawWidth = game.hairline ? 1 : 8;
+  const drawWidth = game.hairline ? 1 : Math.round(8 * dpr);
   const sourceX = Math.floor(source.width / 2 - sourceWidth / 2);
+  // integer-align the destination: -0.5 would smear a 1 px line across 2 columns
+  const drawX = Math.round(-drawWidth / 2);
 
   mentalCtx.globalCompositeOperation = 'source-over';
   mentalCtx.globalAlpha = 0.86;
   mentalCtx.save();
   mentalCtx.translate(width / 2, height / 2);
   mentalCtx.rotate(player.scanRoll);
-  mentalCtx.drawImage(source, sourceX, 0, sourceWidth, source.height, -drawWidth / 2, -height / 2, drawWidth, height);
+  mentalCtx.drawImage(source, sourceX, 0, sourceWidth, source.height, drawX, -height / 2, drawWidth, height);
   mentalCtx.restore();
   mentalCtx.globalAlpha = 1;
 
@@ -1303,7 +1310,7 @@ function drawMentalImage(dt) {
     mentalCtx.save();
     mentalCtx.translate(width / 2, height / 2);
     mentalCtx.rotate(player.scanRoll);
-    mentalCtx.fillRect(-drawWidth / 2 - 2, -height / 2, drawWidth + 4, height);
+    mentalCtx.fillRect(drawX - 2 * dpr, -height / 2, drawWidth + 4 * dpr, height);
     mentalCtx.restore();
     mentalCtx.globalCompositeOperation = 'source-over';
     game.pulse *= Math.pow(0.08, dt);
@@ -1314,23 +1321,28 @@ function drawMentalImage(dt) {
   mentalCtx.save();
   mentalCtx.translate(width / 2, height / 2);
   mentalCtx.rotate(player.scanRoll);
-  mentalCtx.fillRect(0, height / 2 - 24, 1, 18);
+  mentalCtx.fillRect(0, height / 2 - Math.round(24 * dpr), 1, Math.round(18 * dpr));
   mentalCtx.restore();
 
   player.lastYaw = player.yaw;
 }
 
 function resize() {
-  const width = Math.max(320, window.innerWidth);
-  const height = Math.max(240, window.innerHeight);
+  // device-pixel-exact rendering: the canvas backing store matches physical
+  // pixels (capped at 2x), so afterimages are sharp and 1 canvas px = 1 device px
+  dpr = clamp(window.devicePixelRatio || 1, 1, 2);
+  const width = Math.round(Math.max(320, window.innerWidth) * dpr);
+  const height = Math.round(Math.max(240, window.innerHeight) * dpr);
 
   dom.mentalCanvas.width = width;
   dom.mentalCanvas.height = height;
   copyCanvas.width = width;
   copyCanvas.height = height;
 
-  renderer.setSize(SENSOR_RENDER_WIDTH, height, false);
-  camera.aspect = SENSOR_RENDER_WIDTH / height;
+  sensorWidth = Math.round(SENSOR_RENDER_WIDTH * dpr);
+  sensorHeight = height;
+  renderer.setSize(sensorWidth, sensorHeight, false);
+  camera.aspect = sensorWidth / sensorHeight; // = 96/cssHeight, unchanged hFOV
   camera.updateProjectionMatrix();
 
   mentalCtx.fillStyle = '#020304';
@@ -1389,6 +1401,7 @@ function handleKeyDown(event) {
   if (event.code === 'Digit4') {
     event.preventDefault();
     game.hairline = !game.hairline;
+    dom.reticle.classList.toggle('hairline', game.hairline); // thin the guide line too
     showMessage(game.hairline ? 'Hairline scan — one pixel of world.' : 'Hairline scan off.', 2);
     return;
   }

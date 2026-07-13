@@ -243,6 +243,12 @@
       );
     }
 
+    /* hairline scan (key 4): the guide line narrows to 1 px so it never outweighs the scan itself */
+    #reticle.hairline::before {
+      left: calc(50% - 0.5px);
+      width: 1px;
+    }
+
     #reticle::after {
       content: "";
       position: absolute;

@@ -10,6 +10,10 @@ The player's screen is not a viewport. It is a **memory surface**:
 - Everything else is *recollection*: past strips, shifted as the scan turned, fading toward black.
 - Turning the scan is therefore also *painting*; standing still lets the world dissolve. Hence the line: "The ruin is legible only while it moves."
 
+## Device-pixel rendering (2026-07-13)
+
+The mental canvas backing store is sized at `devicePixelRatio` (capped 2×), so **1 canvas px = 1 physical px** — before this, Windows display scaling (e.g. 150%) stretched a CSS-resolution canvas and blurred everything, which is why the hairline experiment first read as "not really 1 px". `renderer.setPixelRatio(1)`; `resize()` computes `dpr`, sizes the canvases and the hidden sensor (`sensorWidth/Height`) in device px. `PANORAMA_PIXELS_PER_RADIAN` remains defined in **CSS px/rad** and is multiplied by `dpr` at use, so the memory horizon (~282° at 1920 CSS px) is unchanged. Normal strip widths scale by `dpr` (8 CSS px); **the hairline strip does not** — it is deliberately 1 *device* px, the thinnest line the screen can show.
+
 ## Exact per-frame behavior
 
 Order matters; this sequence produces the afterimage feel:
