@@ -156,6 +156,12 @@ pan = EAR_SEPARATION · sin(scanRoll) · sin(relativeYaw)     // StereoPannerNod
 
 Decision recorded: ☑ **adopt** — 2026-07-07, user confirmed. Notes: `EAR_SEPARATION = 0.6`; the mapping uses `|sin(scanRoll)|` (the line's ends are indistinguishable, so flipping tilt direction must not mirror the stereo image — magnitude only, direction from `sin(relativeYaw)`); implemented same day (beacons via per-beacon `StereoPannerNode` in `updateAudio`, echo side-rays pan by ray side in `emitEchoes`/`playEchoReturn`; ping/bump/chime remain centered). `AGENTS.md`/`CLAUDE.md`/01-vision wording updated. The 90° unlock (full stereo) is stage ST11, [12-tilt-stages](12-tilt-stages.md) TS-G.
 
+**Physics grounding (fiction audit, 2026-07-13 — user asked "is this fiction?"):**
+- **The core is real acoustics.** Two separated receivers hear only the component of source direction *along their separation axis* (arrival-time difference ∝ `axis·direction` — the working principle of microphone arrays). A vertical baseline therefore cannot distinguish left from right (the psychoacoustic "cone of confusion"); tilting the baseline earns a horizontal component in exact proportion — our `sin(roll)·sin(rel)` is the correct first-order model. Biological precedent: barn owls have vertically *asymmetric* ears (a tilted baseline) for elevation hearing, and humans instinctively tilt their heads to break localization ambiguity.
+- **What is fiction:** that a zero-thickness being interacts with 3D sound at all, and that its "ears" are the ends of the *attention* line (pinned deliberately).
+- **Where the implementation cheats:** a real two-point receiver on a shadowless (zero-width) body would produce almost pure *time* differences (ITD), not level differences — but we pan by level (`StereoPannerNode`) for game legibility, and we drop the which-end-first sign (`|sin|`).
+- **Purist alternative (not adopted, keep on file):** replace level-pan with an interaural delay — split each beacon to L/R with per-channel `DelayNode`s, ≤ ~0.6 ms offset. The Haas/precedence effect localizes sound to the earlier ear even at equal loudness, and ITD dominates below ~1.5 kHz — which happens to be exactly our beacon band (236–660 Hz), so the honest method would work physiologically. Weaker over speakers, subtler than pan; revisit only as an experiment if the game ever wants a "pure" audio mode.
+
 ### WebAudio hygiene
 
 - Create nodes per ping and let them end (`osc.stop`) — GC handles it; do not grow persistent node counts per frame.
