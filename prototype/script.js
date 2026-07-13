@@ -31,6 +31,11 @@ const ECHO_GAIN = 0.16;
 // Tilt-derived stereo (decision ③): the scan line's two ends are the ears.
 // pan = -EAR_SEPARATION * |sin(scanRoll)| * sin(relativeYaw); mono when vertical.
 const EAR_SEPARATION = 0.6;
+// Interaural time difference layered on top of the pan (2026-07-13): the near
+// ear hears first, up to EAR_ITD_MAX at full tilt - the physically-honest cue
+// (a zero-width body casts no acoustic shadow, so time, not level, is what its
+// two ends would really measure). Both cues follow the same tilt law.
+const EAR_ITD_MAX = 0.0007; // seconds (~human-head scale)
 // Ping modes (decision 2 A/B test — keys 0/1/2): 0 = periodic, 1 = on-demand, 2 = hybrid
 const FOCUSED_PING_COOLDOWN = 0.35;
 const HEARTBEAT_PING_SCALE = 0.22;
@@ -168,6 +173,7 @@ const game = {
   hairline: true, // adopted 2026-07-13: the 1-device-px line is the 2D being's true feel
   noAfterimage: false, // no memory, only the living line (key 5 toggles; ST1 starts this way)
   memoryLocked: false, // set by level.memoryLocked; cleared (with a message) on the win
+  silentPings: false, // level.silentPings: no self-pings/echoes — one hum at a time (ST1 monophony)
   activePickupIndex: 0,
   lastAnchorHint: -Infinity,
   lastPortalHint: -Infinity,
@@ -509,6 +515,7 @@ function addWorld(level) {
     game.memoryLocked = true;
     game.noAfterimage = true;
   }
+  if (level.silentPings) game.silentPings = true; // audio layers arrive one at a time
   if (level.revealDuration) revealDuration = level.revealDuration;
   for (const box of level.walls ?? []) addSolidBox(box);
   for (const column of level.columns ?? []) addColumn(column.right, column.forward, column.radius, column.height, column.color);
@@ -954,6 +961,11 @@ function startAudio() {
     const filter = audioCtx.createBiquadFilter();
     const gain = audioCtx.createGain();
     const panner = audioCtx.createStereoPanner();
+    // ITD stage: split the panned stereo, delay each ear independently, remerge
+    const splitter = audioCtx.createChannelSplitter(2);
+    const delayL = audioCtx.createDelay(0.01);
+    const delayR = audioCtx.createDelay(0.01);
+    const merger = audioCtx.createChannelMerger(2);
 
     const wooden = beacon.timbre === 'wood';
     osc.type = wooden ? 'triangle' : 'sine';
@@ -963,14 +975,21 @@ function startAudio() {
     filter.Q.value = wooden ? 2 : 6;
     gain.gain.value = 0;
     panner.pan.value = 0;
+    delayL.delayTime.value = EAR_ITD_MAX / 2; // equal base latency = centered
+    delayR.delayTime.value = EAR_ITD_MAX / 2;
 
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(panner);
-    panner.connect(masterGain);
+    panner.connect(splitter);
+    splitter.connect(delayL, 0);
+    splitter.connect(delayR, 1);
+    delayL.connect(merger, 0, 0);
+    delayR.connect(merger, 0, 1);
+    merger.connect(masterGain);
 
     osc.start();
-    beacon.audio = { osc, filter, gain, panner };
+    beacon.audio = { osc, filter, gain, panner, delayL, delayR };
   }
 
   playSelfPing();
@@ -980,7 +999,7 @@ function updateAudio() {
   if (!audioCtx) return;
 
   const now = audioCtx.currentTime;
-  if (game.pingMode !== 1 && now >= nextSelfPingAt) {
+  if (!game.silentPings && game.pingMode !== 1 && now >= nextSelfPingAt) {
     if (game.pingMode === 0) {
       playSelfPing(0.42);
       emitEchoes(0.42);
@@ -1011,12 +1030,16 @@ function updateAudio() {
     const targetFilter = beacon.baseFreq * (1.4 + signal * 1.8 + echoPulse * 2.4 + scanEnergy * 2.8);
 
     const targetPan = clamp(-EAR_SEPARATION * tiltStereo * Math.sin(rel), -1, 1);
+    // ITD (same tilt law): positive = source left = left ear leads (shorter delay)
+    const itd = clamp(EAR_ITD_MAX * tiltStereo * Math.sin(rel), -EAR_ITD_MAX, EAR_ITD_MAX);
 
     beacon.audio.gain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.06);
     beacon.audio.osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.045);
     beacon.audio.filter.frequency.setTargetAtTime(targetFilter, audioCtx.currentTime, 0.045);
     beacon.audio.filter.Q.setTargetAtTime(5 + scanEnergy * 10, audioCtx.currentTime, 0.06);
     beacon.audio.panner.pan.setTargetAtTime(targetPan, audioCtx.currentTime, 0.06);
+    beacon.audio.delayL.delayTime.setTargetAtTime((EAR_ITD_MAX - itd) / 2, audioCtx.currentTime, 0.06);
+    beacon.audio.delayR.delayTime.setTargetAtTime((EAR_ITD_MAX + itd) / 2, audioCtx.currentTime, 0.06);
   }
 }
 
@@ -1041,7 +1064,7 @@ function playSelfPing(scale = 1) {
 }
 
 function fireFocusedPing() {
-  if (!audioCtx || !game.started || inputLocked()) return;
+  if (!audioCtx || !game.started || inputLocked() || game.silentPings) return;
   if (game.pingMode === 0) return;
 
   const now = audioCtx.currentTime;
@@ -1135,10 +1158,23 @@ function playEchoReturn(delay, distance, scale, pan = 0) {
   osc.connect(filter);
   filter.connect(gain);
   if (pan !== 0) {
+    // level pan + the matching interaural delay (near ear hears the blip first)
     const panner = audioCtx.createStereoPanner();
     panner.pan.setValueAtTime(clamp(pan, -1, 1), start);
+    const itd = clamp(-pan / EAR_SEPARATION, -1, 1) * EAR_ITD_MAX;
+    const splitter = audioCtx.createChannelSplitter(2);
+    const delayL = audioCtx.createDelay(0.01);
+    const delayR = audioCtx.createDelay(0.01);
+    const merger = audioCtx.createChannelMerger(2);
+    delayL.delayTime.value = (EAR_ITD_MAX - itd) / 2;
+    delayR.delayTime.value = (EAR_ITD_MAX + itd) / 2;
     gain.connect(panner);
-    panner.connect(masterGain);
+    panner.connect(splitter);
+    splitter.connect(delayL, 0);
+    splitter.connect(delayR, 1);
+    delayL.connect(merger, 0, 0);
+    delayR.connect(merger, 0, 1);
+    merger.connect(masterGain);
   } else {
     gain.connect(masterGain);
   }
@@ -1438,6 +1474,7 @@ function handleKeyDown(event) {
 
   if (event.code === 'Digit0' || event.code === 'Digit1' || event.code === 'Digit2') {
     event.preventDefault();
+    game.silentPings = false; // dev escape hatch: switching ping modes re-enables echoes
     game.pingMode = Number(event.code.slice(-1));
     const labels = [
       'periodic — auto sonar every beat',

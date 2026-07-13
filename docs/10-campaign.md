@@ -51,7 +51,7 @@ Confirmed with the user 2026-07-07: the game is **stage-clear (面クリア式)*
 - **The arc:** ① anchor 1 is found **by sound** (it hums straight ahead; scan-doppler homes you); ② collecting an anchor fires the reveal flash (**0.5 s here** via `revealDuration`) and the **next anchor is placed inside that flash's view** — you walk from a glimpse held in your head; ③ the win unlocks memory: "…and the world begins to remain" — afterimages exist from ST2 on, understood as the automated form of what you just did manually.
 - **Guardrail (user):** memory must NOT unlock early — audio literacy is learned *before* visual memory, or players never learn to use sound. Anchor 1 must be findable by ear alone; nothing may block the straight glimpse-walk lines (a head-on obstacle in a no-memory stage is cruel).
 - **Layout:** anchors (0,−3.5) → (−4.5,4.5) → (−7.5,9), each within ~±38° of the previous approach heading (the full-window reveal hFOV); interior geometry sits OFF those lines as bump/echo furniture; portal (0,9.5) sings when open. Built as `levels/level01.js`.
-- **Audio:** load-bearing for the first time — hum + heartbeat echo are the only guides before the first flash.
+- **Audio: the anchor hum ALONE** (`silentPings` — no self-pings/echoes; user call 2026-07-13: hum + echo at once is polyphony untrained ears can't separate). One voice to follow; the heartbeat echo joins in ST2 — "the world begins to answer."
 - **Acceptance:** a new player finds anchor 1 by ear in ≤ 90 s; clears in ≤ 7 min; the memory unlock at the win reads as a *gift*, not a settings change.
 
 ### ST2 — 面と門 / Faces and Gates
@@ -59,6 +59,7 @@ Confirmed with the user 2026-07-07: the game is **stage-clear (面クリア式)*
 - **New:** `approachYaw` gates. Message language plants the combat seed early: *things in this world have a face*.
 - **Layout:** 1 free anchor (warmup), 2 gated anchors whose open sides face *away* from the natural approach; corridors make the wrong side the obvious path, so the player must read the green entry line and plan.
 - **Banked corridor (rung 0):** one connecting passage crosses a fallen 18° slab — the world leans the player and the active hum drifts sideways with zero input (passive tilt + free ③ stereo preview; spec in [12-tilt-stages](12-tilt-stages.md) "Rung-0 beats").
+- **The echo layer debuts here:** ST2 is the first stage with self-pings/echo returns (ST1 was hum-only monophony) — the opening beat should let the player *notice* the world answering before asking anything of it.
 - **Acceptance:** player bounces off a wrong side at least once (the hint fires), then succeeds; understands facing without text beyond the existing hint.
 
 ### ST3 — 拍を読む / Reading the Pulse

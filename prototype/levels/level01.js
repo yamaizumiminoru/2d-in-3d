@@ -46,6 +46,11 @@ export default {
   // if memory unlocks early, players never learn to use sound).
   memoryLocked: true,
   revealDuration: 0.5, // slightly longer flash here - it is this stage's only map
+  // Audio layers arrive one at a time (user call 2026-07-13: hum + echo at once
+  // is polyphony, and untrained ears cannot separate two streams). ST1 = the
+  // anchor hum ALONE; self-pings/echoes switch on from ST2 - the world begins
+  // to answer only after you have learned to follow one voice.
+  silentPings: true,
 
   // ST1 palette (docs/14): near-monochrome cold cyan, palest floor, sparse grid.
   palette: {

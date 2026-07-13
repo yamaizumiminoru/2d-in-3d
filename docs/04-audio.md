@@ -2,6 +2,10 @@
 
 Two parts: (A) exact spec of what exists, (B) the Echolocation v2 plan — the highest-priority unbuilt system. The known gap: **the prototype is currently solvable without sound.** Future levels must make audio genuinely necessary without turning it into a radar.
 
+## Audio layers arrive one at a time (user call, 2026-07-13)
+
+Hum + echo presented together is **polyphony** — following two simultaneous streams is a trained skill most players don't have. So the layers are introduced stage by stage: **ST1 = the anchor hum alone** (`level.silentPings` mutes self-pings/echoes entirely; wall bump stays — it is event feedback, not a stream), **ST2 on = the heartbeat echo joins** ("the world begins to answer"), the **focused ping is taught in ST8** (② hybrid), and the trained ear meets richer signatures (B4) only in combat stages. One voice first; counterpoint later. Dev escape hatch: pressing `0/1/2` clears `silentPings`.
+
 ## Principles (from the user, non-negotiable)
 
 - **No unearned stereo.** The line's two ends are the only ears: mono while the scan is vertical; pan exists only via §D's tilt law. Self-generated sounds always centered.
@@ -160,7 +164,7 @@ Decision recorded: ☑ **adopt** — 2026-07-07, user confirmed. Notes: `EAR_SEP
 - **The core is real acoustics.** Two separated receivers hear only the component of source direction *along their separation axis* (arrival-time difference ∝ `axis·direction` — the working principle of microphone arrays). A vertical baseline therefore cannot distinguish left from right (the psychoacoustic "cone of confusion"); tilting the baseline earns a horizontal component in exact proportion — our `sin(roll)·sin(rel)` is the correct first-order model. Biological precedent: barn owls have vertically *asymmetric* ears (a tilted baseline) for elevation hearing, and humans instinctively tilt their heads to break localization ambiguity.
 - **What is fiction:** that a zero-thickness being interacts with 3D sound at all, and that its "ears" are the ends of the *attention* line (pinned deliberately).
 - **Where the implementation cheats:** a real two-point receiver on a shadowless (zero-width) body would produce almost pure *time* differences (ITD), not level differences — but we pan by level (`StereoPannerNode`) for game legibility, and we drop the which-end-first sign (`|sin|`).
-- **Purist alternative (not adopted, keep on file):** replace level-pan with an interaural delay — split each beacon to L/R with per-channel `DelayNode`s, ≤ ~0.6 ms offset. The Haas/precedence effect localizes sound to the earlier ear even at equal loudness, and ITD dominates below ~1.5 kHz — which happens to be exactly our beacon band (236–660 Hz), so the honest method would work physiologically. Weaker over speakers, subtler than pan; revisit only as an experiment if the game ever wants a "pure" audio mode.
+- ~~Purist alternative (not adopted)~~ → **ADOPTED as an addition, 2026-07-13** (user: 「わかりやすくなるなら時間差も加えましょう」): the interaural time difference is now **layered on top of the level pan** — both cues follow the same tilt law, which is standard binaural practice (redundant cues localize far more robustly). Per beacon: `panner → ChannelSplitter → DelayL/DelayR → ChannelMerger → master`, delays `(EAR_ITD_MAX ∓ itd)/2` with `itd = EAR_ITD_MAX·|sin(roll)|·sin(rel)`, `EAR_ITD_MAX = 0.7 ms`; echo side-ray blips get the same static split derived from their pan. Verified live: vertical = 0.35/0.35 ms (centered); 45° tilt with the source left = L 0.14 / R 0.56 ms + pan −0.37 — both cues agreeing. ITD dominates below ~1.5 kHz, exactly our beacon band (236–660 Hz). *Caveat:* on mono-downmixing speakers the interaural delay comb-filters slightly (worst near 714 Hz); only occurs while tilted, judged acceptable — revisit if a mono-hardware tester reports hollow tones.
 
 ### WebAudio hygiene
 
