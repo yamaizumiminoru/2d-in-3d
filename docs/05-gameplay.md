@@ -17,7 +17,8 @@ Controls, physics, anchors, portal, HUD — with the exact numbers from `prototy
 | Left click | Start, then jump | also requests pointer lock |
 | `Enter` | Start | |
 | `3` | Toggle DEV 3D | debug only; works even during reveal |
-| `4` | Toggle hairline scan (experiment) | live strip becomes a true **1 device-px** slice (normal: 3 source → 8 CSS px); the center guide line also thins to 1 px; user experiment, undecided |
+| `4` | Toggle hairline ↔ wide strip | **hairline (1 device px) is the DEFAULT since 2026-07-13** — the user judged it truer to the 2D being's feel. `4` switches to the old wide strip (3 source → 8 CSS px) for comparison; retire the toggle before release |
+| `5` | Toggle zero-afterimage (experiment) | wipes the canvas every frame — no memory, only the living line. User experiment, undecided |
 | `0` / `1` / `2` | Ping mode (decision ②: **hybrid adopted**, default = 2) | 0 = periodic, 1 = on-demand kept as dev comparison; retire before release |
 | `F` / right-click | Focused ping | modes 1–2 only; full 3-ray fan, full range, `FOCUSED_PING_COOLDOWN` 0.35 s |
 

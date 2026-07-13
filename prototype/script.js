@@ -164,7 +164,8 @@ const game = {
   mouseScanDelta: 0,
   revealTimer: 0,
   devView: false,
-  hairline: false,
+  hairline: true, // adopted 2026-07-13: the 1-device-px line is the 2D being's true feel
+  noAfterimage: false, // experiment (key 5): no memory, only the living line
   activePickupIndex: 0,
   lastAnchorHint: -Infinity,
   lastPortalHint: -Infinity,
@@ -1261,15 +1262,21 @@ function drawMentalImage(dt) {
   const yawDelta = normalizeAngle(player.yaw - player.lastYaw);
   const shift = yawDelta * PANORAMA_PIXELS_PER_RADIAN * dpr; // constant is CSS-px per radian
 
-  copyCtx.fillStyle = '#020304';
-  copyCtx.fillRect(0, 0, width, height);
-  copyCtx.drawImage(dom.mentalCanvas, shift, 0);
-  mentalCtx.drawImage(copyCanvas, 0, 0);
+  if (game.noAfterimage) {
+    // experiment (key 5): no memory at all — wipe the canvas, only the live line survives
+    mentalCtx.fillStyle = '#020304';
+    mentalCtx.fillRect(0, 0, width, height);
+  } else {
+    copyCtx.fillStyle = '#020304';
+    copyCtx.fillRect(0, 0, width, height);
+    copyCtx.drawImage(dom.mentalCanvas, shift, 0);
+    mentalCtx.drawImage(copyCanvas, 0, 0);
 
-  const drift = Math.hypot(player.angularVelocity, player.rollVelocity * 0.75);
-  const motionDecay = clamp(Math.abs(drift) * 0.005, 0, 0.03);
-  mentalCtx.fillStyle = `rgba(2, 3, 4, ${0.03 + motionDecay})`;
-  mentalCtx.fillRect(0, 0, width, height);
+    const drift = Math.hypot(player.angularVelocity, player.rollVelocity * 0.75);
+    const motionDecay = clamp(Math.abs(drift) * 0.005, 0, 0.03);
+    mentalCtx.fillStyle = `rgba(2, 3, 4, ${0.03 + motionDecay})`;
+    mentalCtx.fillRect(0, 0, width, height);
+  }
 
   if (game.devView) {
     drawFull3D(width, height);
@@ -1402,7 +1409,14 @@ function handleKeyDown(event) {
     event.preventDefault();
     game.hairline = !game.hairline;
     dom.reticle.classList.toggle('hairline', game.hairline); // thin the guide line too
-    showMessage(game.hairline ? 'Hairline scan — one pixel of world.' : 'Hairline scan off.', 2);
+    showMessage(game.hairline ? 'Hairline scan — one pixel of world.' : 'Wide scan strip (comparison mode).', 2);
+    return;
+  }
+
+  if (event.code === 'Digit5') {
+    event.preventDefault();
+    game.noAfterimage = !game.noAfterimage;
+    showMessage(game.noAfterimage ? 'No afterimage — only the living line.' : 'Afterimage restored.', 2.4);
     return;
   }
 
@@ -1541,6 +1555,7 @@ async function loadLevel() {
 
 async function init() {
   buildTitle();
+  dom.reticle.classList.toggle('hairline', game.hairline); // hairline is the default scan
   addWorld(await loadLevel());
   buildAnchorSegments();
   resize();

@@ -14,6 +14,8 @@ The player's screen is not a viewport. It is a **memory surface**:
 
 The mental canvas backing store is sized at `devicePixelRatio` (capped 2×), so **1 canvas px = 1 physical px** — before this, Windows display scaling (e.g. 150%) stretched a CSS-resolution canvas and blurred everything, which is why the hairline experiment first read as "not really 1 px". `renderer.setPixelRatio(1)`; `resize()` computes `dpr`, sizes the canvases and the hidden sensor (`sensorWidth/Height`) in device px. `PANORAMA_PIXELS_PER_RADIAN` remains defined in **CSS px/rad** and is multiplied by `dpr` at use, so the memory horizon (~282° at 1920 CSS px) is unchanged. Normal strip widths scale by `dpr` (8 CSS px); **the hairline strip does not** — it is deliberately 1 *device* px, the thinnest line the screen can show.
 
+**Hairline is the default since 2026-07-13** (user: 「1ピクセルの方が2次元人の体感っぽくていい」); key `4` toggles back to the wide strip for comparison. Key `5` is a further experiment: **zero afterimage** — the canvas is wiped every frame and only the live line exists. Undecided; if adopted anywhere, the natural home is a story beat (e.g. the first seconds after the fall, before he *learns* to remember — afterimage as an acquired skill).
+
 ## Exact per-frame behavior
 
 Order matters; this sequence produces the afterimage feel:
