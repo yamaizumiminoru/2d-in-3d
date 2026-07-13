@@ -51,6 +51,8 @@ Same flat-theater system, richer scenes. Not every stage gets one — scarcity k
 
 ## In-stage devices (no cutscene needed)
 
+- **The memory unlock (ADOPTED 2026-07-13, implemented in ST1):** afterimage is a learned skill. ST1 plays raw — only the living line; sound finds the first anchor; each reveal flash is the only map; the win grants memory ("…and the world begins to remain"). The player experiences the *birth of memory* — the game's biggest power-up is perception itself, and it arrives without a single word of tutorial.
+
 - **Trail decals + leitmotif notes** — specced for ST12; sprinkle *sparingly* from ST3 (one arc per few stages, uncommented).
 - **The reveal-glimpse (new, recommended):** from ST9 on, during exactly one anchor reveal per stage, **she is visible in the far distance** — a tiny portrait plane, gone when perception collapses back. Closer every stage. The player learns to *spend their glimpse looking for her* — story delivered through the game's most expensive resource, 0.28 s of sight. Implementation: a scripted plane present only while `revealTimer > 0` on the stage's designated anchor.
 - **Mirrors:** ST12's one-beat crossing reflection ([07-combat-body-plane](07-combat-body-plane.md) §2.6).

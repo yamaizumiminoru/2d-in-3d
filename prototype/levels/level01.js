@@ -34,6 +34,18 @@ export default {
   playerStart: { right: 0, forward: -9.5, yaw: 0 },
   bounds: { minRight: -11, maxRight: 11, minForward: -11, maxForward: 11 },
   compassGranted: true,
+  // Story decision 2026-07-13: afterimage (memory) is a LEARNED skill, and the
+  // ENTIRE first stage plays without it - only the living line. The arc:
+  //   anchor 1 is found by SOUND (it hums straight ahead);
+  //   collecting an anchor gives the reveal flash, and the NEXT anchor is placed
+  //   inside that flash's view (~±38° of the approach heading) - you navigate
+  //   from a glimpse held in your head;
+  //   winning the stage unlocks memory ("the world begins to remain") - ST2+
+  //   then has afterimages, understood as the automated form of what you did.
+  // Audio literacy is learned BEFORE visual memory, on purpose (user call:
+  // if memory unlocks early, players never learn to use sound).
+  memoryLocked: true,
+  revealDuration: 0.5, // slightly longer flash here - it is this stage's only map
 
   // ST1 palette (docs/14): near-monochrome cold cyan, palest floor, sparse grid.
   palette: {
@@ -51,9 +63,11 @@ export default {
     { right: -12.2, forward: 0, width: 0.8, depth: 26, height: 3.2, color: 0x35d7ff, glow: 0.5 },
     { right: 12.2, forward: 0, width: 0.8, depth: 26, height: 3.2, color: 0x35d7ff, glow: 0.5 },
 
-    // interior: one occluder wall (hides anchor 3) and one bump-teaching block
+    // interior: a wall east of the route (echo/bump furniture) and a block near
+    // anchor 1 — both OFF the A1->A2->A3 glimpse-walk line (this stage plays
+    // without afterimage; a head-on blocker on the natural path would be cruel)
     { right: 3.8, forward: 0.8, width: 6.5, depth: 0.75, height: 2.6, color: 0x4a8dff, glow: 0.46, edge: 0xcce0ff },
-    { right: -3.6, forward: 0.5, width: 2.2, depth: 2.2, height: 3.0, color: 0xb77cff, glow: 0.5, edge: 0xf0d1ff },
+    { right: 3.5, forward: -2, width: 2.2, depth: 2.2, height: 3.0, color: 0xb77cff, glow: 0.5, edge: 0xf0d1ff },
   ],
 
   // three landmarks at distinct bearings/heights (readability rule 4: >= 3 per room)
@@ -73,27 +87,29 @@ export default {
       forward: -3.5,
       color: 0x44e7ff,
       baseFreq: 330,
-      label: 'touch',
-      kind: 'still / any side',
+      label: 'hum',
+      kind: 'still / heard',
       hint: 'Anchor 1: walk to the ring that hums.',
     },
     {
-      right: -8.5,
-      forward: 4,
+      // ~29° left of the approach heading at anchor 1 - inside the reveal flash
+      right: -4.5,
+      forward: 4.5,
       color: 0xffc95a,
       baseFreq: 410,
-      label: 'sweep',
-      kind: 'still / any side',
-      hint: 'Anchor 2: sweep until the second ring surfaces, then cross to it.',
+      label: 'flash',
+      kind: 'still / glimpsed',
+      hint: 'Anchor 2: the flash showed it. Walk from what you saw.',
     },
     {
-      right: 5,
-      forward: 3.4,
+      // ~4° off the A1->A2 heading - visible in anchor 2's flash
+      right: -7.5,
+      forward: 9,
       color: 0xff5fd7,
       baseFreq: 500,
-      label: 'hidden',
-      kind: 'still / any side',
-      hint: 'Anchor 3: the third hides behind a wall. Trust the hum.',
+      label: 'flash2',
+      kind: 'still / glimpsed',
+      hint: 'Anchor 3: listen, then trust the flash.',
     },
   ],
 

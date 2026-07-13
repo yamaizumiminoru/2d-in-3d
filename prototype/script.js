@@ -23,6 +23,7 @@ const PICKUP_TOUCH_RADIUS = 1.18;
 const AIR_TOUCH_HEIGHT = 1.05;
 const AIR_TOUCH_TOLERANCE = 0.78;
 const REVEAL_DURATION = 0.28;
+let revealDuration = REVEAL_DURATION; // per-level override (ST1 lengthens the flash: it is that stage's only map)
 const SOUND_SPEED = 34;
 const MAX_ECHO_RANGE = 24;
 const ECHO_RAY_OFFSETS = [-0.21, 0, 0.21];
@@ -165,7 +166,8 @@ const game = {
   revealTimer: 0,
   devView: false,
   hairline: true, // adopted 2026-07-13: the 1-device-px line is the 2D being's true feel
-  noAfterimage: false, // experiment (key 5): no memory, only the living line
+  noAfterimage: false, // no memory, only the living line (key 5 toggles; ST1 starts this way)
+  memoryLocked: false, // set by level.memoryLocked; cleared (with a message) on the win
   activePickupIndex: 0,
   lastAnchorHint: -Infinity,
   lastPortalHint: -Infinity,
@@ -501,6 +503,13 @@ function addWorld(level) {
 
   if (level.bounds) BOUNDS = { ...level.bounds };
   if (level.compassGranted) game.compassFound = true; // early stages pre-grant DIR (campaign rule: ST1-2)
+  if (level.memoryLocked) {
+    // afterimage is a learned skill (story decision 2026-07-13): this stage plays
+    // raw - only the living line - and the win unlocks memory
+    game.memoryLocked = true;
+    game.noAfterimage = true;
+  }
+  if (level.revealDuration) revealDuration = level.revealDuration;
   for (const box of level.walls ?? []) addSolidBox(box);
   for (const column of level.columns ?? []) addColumn(column.right, column.forward, column.radius, column.height, column.color);
   for (const marker of level.markers ?? []) addMarkerBox(marker);
@@ -834,7 +843,7 @@ function collectPickup(pickup) {
   game.collected += 1;
   game.activePickupIndex += 1;
   game.pulse = 1;
-  game.revealTimer = REVEAL_DURATION;
+  game.revealTimer = revealDuration;
   playAnchorChime(pickup.color, 1);
 
   if (game.collected === pickups.length) {
@@ -899,8 +908,15 @@ function updatePortal(t, dt) {
   if (open && !game.won && distanceSq < 2.2 * 2.2) {
     game.won = true;
     playAnchorChime(COLORS.green, 1.35);
-    game.revealTimer = REVEAL_DURATION;
-    showMessage('The flat traveler crosses the third axis.', 8);
+    game.revealTimer = revealDuration;
+    if (game.memoryLocked) {
+      // the stage's reward: memory itself — afterimages exist from here on
+      game.memoryLocked = false;
+      game.noAfterimage = false;
+      showMessage('The flat traveler crosses the third axis — and the world begins to remain.', 8);
+    } else {
+      showMessage('The flat traveler crosses the third axis.', 8);
+    }
     dom.modeReadout.textContent = 'VOLUME HELD';
     setTimeout(showEndTitle, 3200); // title card returns, letters realign to coplanar
   }
@@ -1285,7 +1301,7 @@ function drawMentalImage(dt) {
   }
 
   if (game.revealTimer > 0) {
-    const revealAlpha = clamp(game.revealTimer / REVEAL_DURATION, 0, 1);
+    const revealAlpha = clamp(game.revealTimer / revealDuration, 0, 1);
     drawFull3D(width, height, 0.18 + revealAlpha * 0.62);
     mentalCtx.fillStyle = `rgba(125, 255, 154, ${revealAlpha * 0.08})`;
     mentalCtx.fillRect(0, 0, width, height);
@@ -1545,11 +1561,14 @@ function loop(time) {
 async function loadLevel() {
   const requested = new URLSearchParams(window.location.search).get('level') || '1';
   const id = String(parseInt(requested, 10) || 1).padStart(2, '0');
+  // ?t= busts the browser's module cache — level files are the hottest-edited
+  // files during development and a stale one is worse than an extra fetch
+  const bust = `?t=${Date.now()}`;
   try {
-    return (await import(`./levels/level${id}.js`)).default;
+    return (await import(`./levels/level${id}.js${bust}`)).default;
   } catch (error) {
     console.warn(`Level "${requested}" failed to load; falling back to level 01.`, error);
-    return (await import('./levels/level01.js')).default;
+    return (await import(`./levels/level01.js${bust}`)).default;
   }
 }
 

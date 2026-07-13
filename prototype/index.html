@@ -383,6 +383,7 @@
       }
     }
   </script>
-  <script type="module" src="./script.js"></script>
+  <!-- ?v= busts stale module caches from before the no-store dev server (tools/serve.py) -->
+  <script type="module" src="./script.js?v=2"></script>
 </body>
 </html>

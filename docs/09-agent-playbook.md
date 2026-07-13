@@ -9,9 +9,10 @@ Operational manual for any coding agent (Claude, Gemini/Antigravity, Codex, …)
 - Serve `prototype/` as web root on port 4173 (convention):
 
 ```powershell
-python -m http.server 4173 --directory prototype
-# or: npx http-server prototype -p 4173
+python tools/serve.py 8000
 ```
+
+⚠️ Use `tools/serve.py`, not a bare static server: it sends `Cache-Control: no-store`. Chromium caches ES modules aggressively when no cache headers are present, and we lost time to a browser running stale `script.js`/level modules after edits. Belt-and-braces: `index.html` versions `script.js` (`?v=N` — bump on breaking changes) and `loadLevel()` timestamps level imports.
 
 - Three.js is vendored (`prototype/third_party/three/`) — no internet needed. If the page is black, check the browser console for an import-map path error first.
 - Levels load from `prototype/levels/levelNN.js` via `?level=N` (default 1; bad ids fall back to 01 with a console warning). **File numbers = campaign stage numbers.** `level01` = ST1 (3 anchors, the annotated authoring template — copy it for new stages); `level07` = the Scattered Hall (the 5-anchor reference room the smoke test below describes — run it via `?level=7`).

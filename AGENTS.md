@@ -9,12 +9,12 @@ This file is the entry point for any coding agent working in this repository. Th
 There is **no build step**. The game is plain HTML + ES modules; Three.js 0.160 is vendored at `prototype/third_party/three/` and loaded via an import map (no internet needed).
 
 ```powershell
-# Serve the prototype folder as web root (any static server works; 4173 is the convention here)
-python -m http.server 4173 --directory prototype
-# or: npx http-server prototype -p 4173
+# Dev server (sends Cache-Control: no-store — plain static servers let the browser
+# play stale JS modules after edits; that burned us once)
+python tools/serve.py 8000
 ```
 
-Then open `http://127.0.0.1:4173/index.html`. Click or press Space/Enter to start (audio needs a user gesture).
+Then open `http://127.0.0.1:8000/?level=1`. Click or press Space/Enter to start (audio needs a user gesture).
 
 Minimum verification after every edit:
 

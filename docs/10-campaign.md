@@ -47,11 +47,12 @@ Confirmed with the user 2026-07-07: the game is **stage-clear (面クリア式)*
 
 ### ST1 — 目覚めの間 / The Waking Room
 
-- **New:** the core loop. Turning paints; standing still forgets; anchors ring when touched; the dim green door is always the goal.
-- **Layout:** ~24×24 room, 3 still any-side anchors, 3 unmistakable landmarks (one tall column per color family at asymmetric bearings), portal dimly visible from spawn — the goal grammar is taught by sight, not text.
-- **Teaching beats:** first anchor nearly in front of spawn (touch within 60 s); second across the room (forces a full scan sweep); third behind a single wall (forces walking around + re-scanning).
-- **Audio:** everything present (hum, ping, echoes) but nothing required — ears acclimate before they're needed.
-- **Acceptance:** a new player clears in ≤ 7 min with zero deaths/soft-locks; never opens DEV 3D.
+- **New (redesigned 2026-07-13): raw perception — the whole stage plays with NO afterimage** (`memoryLocked`). Memory is a learned skill, and this stage is where it is earned.
+- **The arc:** ① anchor 1 is found **by sound** (it hums straight ahead; scan-doppler homes you); ② collecting an anchor fires the reveal flash (**0.5 s here** via `revealDuration`) and the **next anchor is placed inside that flash's view** — you walk from a glimpse held in your head; ③ the win unlocks memory: "…and the world begins to remain" — afterimages exist from ST2 on, understood as the automated form of what you just did manually.
+- **Guardrail (user):** memory must NOT unlock early — audio literacy is learned *before* visual memory, or players never learn to use sound. Anchor 1 must be findable by ear alone; nothing may block the straight glimpse-walk lines (a head-on obstacle in a no-memory stage is cruel).
+- **Layout:** anchors (0,−3.5) → (−4.5,4.5) → (−7.5,9), each within ~±38° of the previous approach heading (the full-window reveal hFOV); interior geometry sits OFF those lines as bump/echo furniture; portal (0,9.5) sings when open. Built as `levels/level01.js`.
+- **Audio:** load-bearing for the first time — hum + heartbeat echo are the only guides before the first flash.
+- **Acceptance:** a new player finds anchor 1 by ear in ≤ 90 s; clears in ≤ 7 min; the memory unlock at the win reads as a *gift*, not a settings change.
 
 ### ST2 — 面と門 / Faces and Gates
 
