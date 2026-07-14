@@ -36,6 +36,11 @@ const EAR_SEPARATION = 0.6;
 // (a zero-width body casts no acoustic shadow, so time, not level, is what its
 // two ends would really measure). Both cues follow the same tilt law.
 const EAR_ITD_MAX = 0.0007; // seconds (~human-head scale)
+// Beacon hum pulse pattern (user 2026-07-13): a continuous sine is fatiguing,
+// and onsets localize better than steady tones. "... ---" like a beacon signal:
+// three dits, one dah, short rest. Intervals are [on, off] within HUM_PERIOD.
+const HUM_PATTERN = [[0, 0.12], [0.25, 0.37], [0.5, 0.62], [0.85, 1.55]];
+const HUM_PERIOD = 1.9;
 // Ping modes (decision 2 A/B test — keys 0/1/2): 0 = periodic, 1 = on-demand, 2 = hybrid
 const FOCUSED_PING_COOLDOWN = 0.35;
 const HEARTBEAT_PING_SCALE = 0.22;
@@ -990,6 +995,8 @@ function startAudio() {
 
     osc.start();
     beacon.audio = { osc, filter, gain, panner, delayL, delayR };
+    // stagger the "... ---" patterns so simultaneous beacons don't pulse in lockstep
+    beacon.pulsePhase = beacons.indexOf(beacon) * 0.7;
   }
 
   playSelfPing();
@@ -1025,7 +1032,10 @@ function updateAudio() {
     const scanEnergy = clamp(Math.abs(player.angularVelocity) * signal, 0, 1);
     const distancePitch = clamp(1.0 - distance / 24, 0, 1) * 0.22;
     const echoSweep = echoPulse * (0.14 + signal * 0.16);
-    const targetGain = Math.pow(signal, 0.92) * (0.22 + echoPulse * 0.68 + scanEnergy * 0.66) * beacon.gainScale;
+    // "... ---" pulse gate: the hum speaks in beats instead of one continuous tone
+    const humPhase = (now + (beacon.pulsePhase || 0)) % HUM_PERIOD;
+    const humGate = HUM_PATTERN.some(([on, off]) => humPhase >= on && humPhase < off) ? 1 : 0;
+    const targetGain = Math.pow(signal, 0.92) * (0.22 + echoPulse * 0.68 + scanEnergy * 0.66) * beacon.gainScale * humGate;
     const targetFreq = beacon.baseFreq * (0.82 + alignment * 0.16 + distancePitch + echoSweep + scanDoppler);
     const targetFilter = beacon.baseFreq * (1.4 + signal * 1.8 + echoPulse * 2.4 + scanEnergy * 2.8);
 
@@ -1033,7 +1043,7 @@ function updateAudio() {
     // ITD (same tilt law): positive = source left = left ear leads (shorter delay)
     const itd = clamp(EAR_ITD_MAX * tiltStereo * Math.sin(rel), -EAR_ITD_MAX, EAR_ITD_MAX);
 
-    beacon.audio.gain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.06);
+    beacon.audio.gain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.025); // fast enough for crisp dits, slow enough not to click
     beacon.audio.osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.045);
     beacon.audio.filter.frequency.setTargetAtTime(targetFilter, audioCtx.currentTime, 0.045);
     beacon.audio.filter.Q.setTargetAtTime(5 + scanEnergy * 10, audioCtx.currentTime, 0.06);

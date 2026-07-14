@@ -26,6 +26,8 @@ one-shots:   self-ping / echo returns (side rays panned ③) / wall bump / chime
 
 Beacons = each anchor (`gainScale` 0.72, `baseFreq` 330/410/500/570/650 Hz for anchors 1–5) + the portal (660 Hz, `gainScale` 1, active only when all anchors are collected). Only the *active* anchor's `isActive()` is true, so exactly one anchor sounds at a time.
 
+**The hum is pulsed, not continuous (user call 2026-07-13):** a steady sine fatigues the ear, and onsets localize better than sustained tones (ITD rides the attack). Pattern 「・・・ ―――」: three 0.12 s dits, one 0.7 s dah, ~44% silence per 1.9 s cycle (`HUM_PATTERN`/`HUM_PERIOD`; gain smoothing τ 0.025 keeps edges crisp but click-free). Per-beacon `pulsePhase` (index × 0.7 s) staggers simultaneous beacons out of lockstep. The dah is long enough to sweep the scan across for the doppler read; if playtesting shows the rests starve direction-finding, lengthen the dah before shrinking the rests.
+
 ### Per-frame modulation (`updateAudio`), exact formulas
 
 ```
